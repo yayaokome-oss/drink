@@ -32,8 +32,25 @@
         @keyframes slideUp { from { transform: translateY(100%); } to { transform: translateY(0); } }
         .animate-slide-up { animation: slideUp 0.4s cubic-bezier(0.4, 0, 0.2, 1); }
 
-        .nav-tri { cursor: pointer; transition: transform 0.2s; user-select: none; }
-        .nav-tri:active { transform: scale(0.8); opacity: 0.7; }
+        /* 三角形按鈕樣式 - 上下扁平圓角化且放大 25% */
+        .nav-tri-btn {
+            cursor: pointer;
+            transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+            user-select: none;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 8px;
+        }
+        .nav-tri-btn:active {
+            transform: scale(0.8);
+            opacity: 0.6;
+        }
+        .tri-svg {
+            fill: #D8B4FE; /* 淺紫色 text-purple-300 */
+            width: 28px;
+            height: 15px;
+        }
     </style>
 </head>
 <body>
@@ -42,7 +59,6 @@
     <script type="text/babel">
         const { useState, useEffect, useMemo } = React;
 
-        // 安全取得配置
         let firebaseConfig = {};
         try {
             firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : {};
@@ -50,6 +66,13 @@
         
         const appId = typeof __app_id !== 'undefined' ? __app_id : 'drink-diary-pro-classic';
         const apiKey = ""; 
+
+        // 自定義「上下扁平且圓角」的三角形組件
+        const TriangleIcon = ({ direction }) => (
+            <svg viewBox="0 0 24 24" className="tri-svg" style={{ transform: direction === 'right' ? 'rotate(180deg)' : 'none' }}>
+                <path d="M19,8 C19,6.5 17.5,6 16.5,6.8 L7.5,10.8 C6.5,11.4 6.5,12.6 7.5,13.2 L16.5,17.2 C17.5,18 19,17.5 19,16 L19,8 Z" />
+            </svg>
+        );
 
         function App() {
             const [dbData, setDbData] = useState(() => JSON.parse(localStorage.getItem('drink_v_ultimate_pro')) || {});
@@ -114,7 +137,7 @@
             };
 
             const callGemini = async (prompt, system) => {
-                if (!apiKey) return "請填寫 API Key。";
+                if (!apiKey) return "請先設定 Gemini API Key。";
                 const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${apiKey}`;
                 try {
                     const response = await fetch(url, {
@@ -130,7 +153,7 @@
                 if (!smartInput.trim() || isParsing) return;
                 setIsParsing(true);
                 try {
-                    const result = await callGemini(`解析 JSON: {price, store, item, ice, sugar, eco}: ${smartInput}`, "你是一個飲料助手。");
+                    const result = await callGemini(`解析：${smartInput}`, "解析 JSON: {price, store, item, ice, sugar, eco}");
                     const data = JSON.parse(result.replace(/```json|```/g, ''));
                     setTempRecords([{ p: data.price || "", s: data.store || "", i: data.item || "", ice: data.ice || "微冰", sug: data.sugar || "微糖", eco: !!data.eco }, ...tempRecords.filter(r => r.p !== "")]);
                     setSmartInput("");
@@ -141,7 +164,7 @@
             const getAIAnalysis = async () => {
                 setIsAiLoading(true);
                 try {
-                    const res = await callGemini(`歷史紀錄: ${JSON.stringify(dbData)}`, "你是幽默專家，用繁體中文分析。");
+                    const res = await callGemini(`歷史紀錄: ${JSON.stringify(dbData)}`, "你是幽默專家。");
                     setAiAnalysis(res);
                 } catch (e) { setAiAnalysis("分析不可用。"); }
                 finally { setIsAiLoading(false); }
@@ -156,88 +179,103 @@
             return (
                 <div className="min-h-screen p-4 max-w-md mx-auto">
                     {/* 切換導覽列 */}
-                    <div className="flex justify-between items-center mb-6">
-                        <div className="flex bg-white p-1 rounded-2xl shadow-sm border border-slate-100">
-                            <button onClick={() => setViewMode('calendar')} className={`p-3 rounded-xl transition-all ${viewMode === 'calendar' ? 'bg-indigo-600 text-white shadow-md' : 'text-slate-400'}`}>
-                                <i data-lucide="calendar" style={{width:'20px'}}></i>
+                    <div className="flex justify-between items-center mb-8">
+                        <div className="flex bg-white p-0.5 rounded-2xl shadow-sm border border-slate-100">
+                            <button onClick={() => setViewMode('calendar')} className={`p-2.5 rounded-xl transition-all ${viewMode === 'calendar' ? 'bg-indigo-600 text-white shadow-md' : 'text-slate-400'}`}>
+                                <i data-lucide="calendar" style={{width:'18px', height:'18px'}}></i>
                             </button>
-                            <button onClick={() => setViewMode('list')} className={`p-3 rounded-xl transition-all ${viewMode === 'list' ? 'bg-indigo-600 text-white shadow-md' : 'text-slate-400'}`}>
-                                <i data-lucide="history" style={{width:'20px'}}></i>
+                            <button onClick={() => setViewMode('list')} className={`p-2.5 rounded-xl transition-all ${viewMode === 'list' ? 'bg-indigo-600 text-white shadow-md' : 'text-slate-400'}`}>
+                                <i data-lucide="history" style={{width:'18px', height:'18px'}}></i>
                             </button>
                         </div>
-                        <div className="bg-white px-5 py-2 rounded-full border border-slate-100 shadow-sm flex items-center gap-2 text-[10px] font-black text-slate-400 uppercase tracking-widest">
+                        <div className="bg-white px-4 py-1.5 rounded-full border border-slate-100 shadow-sm flex items-center gap-2 text-[10px] font-bold text-slate-400 uppercase tracking-widest">
                             <div className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></div>
-                            <span>{typeof __firebase_config !== 'undefined' ? 'Cloud Sync' : 'Offline Mode'}</span>
+                            <span>Cloud Secure</span>
                         </div>
                     </div>
 
-                    <header className="text-center mb-10">
-                        <h1 className="text-6xl mb-2 drop-shadow-sm">🧋</h1>
-                        <p className="text-[10px] font-black text-slate-300 uppercase tracking-[0.5em]">Drink Diary Pro</p>
+                    <header className="text-center mb-8">
+                        <h1 className="text-5xl mb-2 drop-shadow-sm opacity-90">🧋</h1>
+                        <p className="text-[9px] font-bold text-slate-300 uppercase tracking-[0.5em]">Drink Diary Pro</p>
                     </header>
 
-                    {/* 數據看板第一排 (經典 3 欄) */}
+                    {/* 數據看板 */}
                     <div className="grid grid-cols-3 gap-2 mb-2">
-                        <div className="glass-card p-4 flex flex-col items-center">
-                            <p className="text-purple-400 text-[9px] font-black uppercase tracking-tighter mb-1">最愛店家</p>
-                            <p className="font-black text-[11px] text-slate-700 truncate w-full text-center">{stats.store}</p>
+                        <div className="glass-card p-3 flex flex-col items-center">
+                            <p className="text-purple-400 text-[8px] font-bold uppercase tracking-tighter mb-1">最愛店家</p>
+                            <p className="font-bold text-[10px] text-slate-600 truncate w-full text-center">{stats.store}</p>
                         </div>
-                        <div className="glass-card p-4 flex flex-col items-center">
-                            <p className="text-pink-400 text-[9px] font-black uppercase tracking-tighter mb-1">最愛品項</p>
-                            <p className="font-black text-[11px] text-slate-700 truncate w-full text-center">{stats.item}</p>
+                        <div className="glass-card p-3 flex flex-col items-center">
+                            <p className="text-pink-400 text-[8px] font-bold uppercase tracking-tighter mb-1">最愛品項</p>
+                            <p className="font-bold text-[10px] text-slate-600 truncate w-full text-center">{stats.item}</p>
                         </div>
-                        <div className="glass-card p-4 flex flex-col items-center">
-                            <p className="text-emerald-500 text-[9px] font-black uppercase tracking-tighter mb-1">減塑成就 ♻️</p>
-                            <p className="font-black text-[11px] text-slate-700">{stats.eco} 次</p>
+                        <div className="glass-card p-3 flex flex-col items-center">
+                            <p className="text-emerald-500 text-[8px] font-bold uppercase tracking-tighter mb-1">減塑成就 ♻️</p>
+                            <p className="font-bold text-[10px] text-slate-600">{stats.eco} 次</p>
                         </div>
                     </div>
 
-                    {/* 數據看板第二排 (量化) */}
                     <div className="grid grid-cols-3 gap-2 mb-6">
-                        <div className="glass-card py-5 flex flex-col items-center">
-                            <p className="text-slate-400 text-[10px] font-bold mb-1">總杯數</p>
-                            <p className="text-2xl font-black text-slate-800">{stats.total}</p>
+                        <div className="glass-card py-4 flex flex-col items-center">
+                            <p className="text-slate-400 text-[9px] font-semibold mb-0.5">總杯數</p>
+                            <p className="text-xl font-bold text-slate-700 leading-none">{stats.total}</p>
                         </div>
-                        <div className="glass-card py-5 border-x-2 border-slate-50 flex flex-col items-center">
-                            <p className="text-slate-400 text-[10px] font-bold mb-1">總金額</p>
-                            <p className="text-2xl font-black text-emerald-500">${stats.cost}</p>
+                        <div className="glass-card py-4 flex flex-col items-center">
+                            <p className="text-slate-400 text-[9px] font-semibold mb-0.5">總金額</p>
+                            <p className="text-xl font-bold text-emerald-500 leading-none">${stats.cost}</p>
                         </div>
-                        <div className="glass-card py-5 flex flex-col items-center">
-                            <p className="text-slate-400 text-[10px] font-bold mb-1">平均價</p>
-                            <p className="text-2xl font-black text-blue-500">${stats.avg}</p>
+                        <div className="glass-card py-4 flex flex-col items-center">
+                            <p className="text-slate-400 text-[9px] font-semibold mb-0.5">平均價</p>
+                            <p className="text-xl font-bold text-blue-500 leading-none">${stats.avg}</p>
                         </div>
                     </div>
 
-                    {/* AI 分析按鈕 (終極版大圓角) */}
-                    <button onClick={getAIAnalysis} className="w-full bg-white border border-purple-100 mb-8 p-6 rounded-[1.8rem] flex items-center justify-between shadow-sm active:scale-[0.98] transition-all">
-                        <div className="flex items-center gap-5">
-                            <span className="text-3xl">✨</span>
+                    {/* AI 分析按鈕 - 三角形放大 25% 且維持圓潤扁平 */}
+                    <button onClick={getAIAnalysis} className="w-full bg-white border border-purple-100 mb-8 p-5 rounded-[1.8rem] flex items-center justify-between shadow-sm active:scale-[0.98] transition-all">
+                        <div className="flex items-center gap-4">
+                            <span className="text-2xl">✨</span>
                             <div className="text-left">
-                                <p className="text-[10px] font-black text-purple-400 uppercase tracking-widest">Gemini Analysis</p>
-                                <p className="text-lg font-black text-slate-600">看我的飲品生活分析</p>
+                                <p className="text-[9px] font-bold text-purple-400 uppercase tracking-widest">Gemini Analysis</p>
+                                <p className="text-base font-bold text-slate-600">看我的飲品生活分析</p>
                             </div>
                         </div>
-                        <span className="text-purple-200 text-xl">▶</span>
+                        <div className="flex items-center justify-center opacity-60">
+                            <TriangleIcon direction="right" />
+                        </div>
                     </button>
 
-                    {/* 主要視窗切換 */}
+                    {/* 月曆視窗 - 修正比例使其接近正方形，三角形精確對齊 MON/FRI */}
                     {viewMode === 'calendar' ? (
-                        <div className="glass-card p-8 mb-10">
-                            <div className="flex justify-between items-center mb-8 px-1">
-                                <div onClick={() => changeMonth(-1)} className="nav-tri text-purple-300 text-2xl p-2">◀</div>
-                                <p className="text-xl font-black text-slate-700 tracking-widest">{currentYear} / {String(currentMonth + 1).padStart(2, '0')}</p>
-                                <div onClick={() => changeMonth(1)} className="nav-tri text-purple-300 text-2xl p-2">▶</div>
+                        <div className="glass-card p-5 mb-10 pb-6">
+                            <div className="relative flex justify-center items-center mb-4 h-12">
+                                <div 
+                                    onClick={() => changeMonth(-1)} 
+                                    className="nav-tri-btn absolute left-[14.2%]" 
+                                    style={{ transform: 'translateX(0)' }}
+                                >
+                                    <TriangleIcon direction="left" />
+                                </div>
+                                <p className="text-lg font-bold text-slate-700 tracking-widest z-10">{currentYear} / {String(currentMonth + 1).padStart(2, '0')}</p>
+                                <div 
+                                    onClick={() => changeMonth(1)} 
+                                    className="nav-tri-btn absolute right-[14.2%]"
+                                    style={{ transform: 'translateX(0)' }}
+                                >
+                                    <TriangleIcon direction="right" />
+                                </div>
                             </div>
-                            <div className="grid grid-cols-7 gap-y-5 text-center" id="calendar-grid">
-                                {["日", "一", "二", "三", "四", "五", "六"].map(d => <div key={d} className="text-[10px] text-slate-300 font-black uppercase tracking-widest">{d}</div>)}
+                            <div className="grid grid-cols-7 gap-y-1.5 text-center" id="calendar-grid">
+                                {["SUN", "MON", "TUE", "WED", "THU", "FRI", "SAT"].map(d => (
+                                    <div key={d} className="text-[9px] text-slate-300 font-bold uppercase tracking-widest mb-1">{d}</div>
+                                ))}
                                 {calendarDays.map((d, i) => (
                                     <div key={i} onClick={() => d && openEdit(d)} className="aspect-square flex flex-col items-center justify-center cursor-pointer relative">
                                         {d && <>
-                                            <div className={`w-10 h-10 flex items-center justify-center rounded-full text-sm transition-all ${d.drinks.length > 0 ? 'bg-indigo-600 text-white font-black shadow-lg shadow-indigo-100' : 'text-slate-500'} ${new Date().toDateString() === new Date(currentYear, currentMonth, d.day).toDateString() ? 'border-2 border-indigo-400' : ''}`}>
+                                            <div className={`w-8 h-8 flex items-center justify-center rounded-full text-xs transition-all ${d.drinks.length > 0 ? 'bg-indigo-600 text-white font-bold shadow-md' : 'text-slate-400'} ${new Date().toDateString() === new Date(currentYear, currentMonth, d.day).toDateString() ? 'ring-2 ring-indigo-300 ring-offset-1' : ''}`}>
                                                 {d.day}
                                             </div>
-                                            <div className="h-4 flex items-center justify-center mt-1">
-                                                {d.drinks.length > 1 ? <span className="text-[9px] text-pink-400 font-black">{d.drinks.length}杯</span> : d.drinks.length === 1 ? <div className="w-1.5 h-1.5 bg-pink-400 rounded-full"></div> : ''}
+                                            <div className="h-2 flex items-center justify-center mt-0.5">
+                                                {d.drinks.length > 1 ? <span className="text-[8px] text-pink-400 font-bold">{d.drinks.length}杯</span> : d.drinks.length === 1 ? <div className="w-1 h-1 bg-pink-400 rounded-full"></div> : ''}
                                             </div>
                                         </>}
                                     </div>
@@ -245,24 +283,24 @@
                             </div>
                         </div>
                     ) : (
-                        <div className="space-y-4 animate-slide-up">
+                        <div className="space-y-3 animate-slide-up">
                             {Object.keys(dbData).sort((a,b)=>b.localeCompare(a)).map(date => dbData[date].map((drink, idx) => (
-                                <div key={date+idx} className="glass-card p-6 flex items-center justify-between group active:scale-[0.98] transition-all">
-                                    <div className="flex items-center gap-5">
-                                        <div className="w-14 h-14 bg-slate-50 rounded-2xl flex items-center justify-center text-2xl shadow-inner border border-white">{drink.eco ? "♻️" : "🥤"}</div>
+                                <div key={date+idx} className="glass-card p-5 flex items-center justify-between group active:scale-[0.98] transition-all">
+                                    <div className="flex items-center gap-4">
+                                        <div className="w-12 h-12 bg-slate-50 rounded-2xl flex items-center justify-center text-xl shadow-inner border border-white">{drink.eco ? "♻️" : "🥤"}</div>
                                         <div>
-                                            <div className="flex items-center gap-2 mb-1">
-                                                <span className="text-[10px] font-black text-slate-300">{date.substring(4,6)}/{date.substring(6,8)}</span>
-                                                <span className="text-[11px] font-black text-indigo-500 bg-indigo-50 px-2.5 py-0.5 rounded-full">{drink.s}</span>
+                                            <div className="flex items-center gap-2 mb-0.5">
+                                                <span className="text-[9px] font-bold text-slate-300">{date.substring(4,6)}/{date.substring(6,8)}</span>
+                                                <span className="text-[10px] font-bold text-indigo-500 bg-indigo-50 px-2.5 py-0.5 rounded-full">{drink.s}</span>
                                             </div>
-                                            <p className="text-slate-700 font-black text-base leading-tight">{drink.i}</p>
-                                            <div className="flex gap-2 mt-1.5 text-[9px] font-black uppercase">
-                                                <span className="text-blue-400">{drink.ice}</span>
-                                                <span className="text-pink-400">{drink.sug}</span>
+                                            <p className="text-slate-600 font-bold text-sm leading-tight">{drink.i}</p>
+                                            <div className="flex gap-2 mt-1 text-[8px] font-bold uppercase">
+                                                <span className="text-blue-400/80">{drink.ice}</span>
+                                                <span className="text-pink-400/80">{drink.sug}</span>
                                             </div>
                                         </div>
                                     </div>
-                                    <p className="text-emerald-500 text-xl font-black tracking-tighter">${drink.p}</p>
+                                    <p className="text-emerald-500 text-lg font-bold tracking-tighter">${drink.p}</p>
                                 </div>
                             )))}
                         </div>
@@ -270,14 +308,14 @@
 
                     {/* AI 分析 Modal */}
                     {aiAnalysis && (
-                        <div className="fixed inset-0 bg-black/60 backdrop-blur-md z-[1000] flex items-center justify-center p-6">
+                        <div className="fixed inset-0 bg-black/60 backdrop-blur-md z-[1000] flex items-center justify-center p-6 text-left">
                             <div className="bg-white w-full max-w-sm rounded-[2.5rem] p-8 shadow-2xl animate-slide-up">
                                 <div className="flex justify-between items-center mb-6">
-                                    <h3 className="font-black text-purple-600 text-xl flex items-center gap-2">✨ 智慧分析</h3>
-                                    <button onClick={() => setAiAnalysis("")} className="text-slate-300 text-4xl leading-none">&times;</button>
+                                    <h3 className="font-bold text-purple-600 text-lg flex items-center gap-2">✨ 智慧分析</h3>
+                                    <button onClick={() => setAiAnalysis("")} className="text-slate-300 text-3xl leading-none p-1">&times;</button>
                                 </div>
                                 <div className="text-slate-600 leading-relaxed text-sm max-h-[50vh] overflow-y-auto pr-2 custom-scrollbar whitespace-pre-wrap">{aiAnalysis}</div>
-                                <button onClick={() => setAiAnalysis("")} className="w-full bg-purple-600 text-white py-4 rounded-2xl font-black mt-8 shadow-xl">收到了</button>
+                                <button onClick={() => setAiAnalysis("")} className="w-full bg-purple-600 text-white py-4 rounded-2xl font-bold mt-8 shadow-xl">收到了</button>
                             </div>
                         </div>
                     )}
@@ -288,45 +326,45 @@
                             <div className="bg-white w-full rounded-t-[2.5rem] p-8 pb-12 shadow-2xl max-h-[92vh] overflow-y-auto animate-slide-up">
                                 <div className="flex justify-between items-start mb-8">
                                     <div>
-                                        <p className="text-[10px] font-black text-slate-300 uppercase tracking-widest mb-1">RECORD DATE</p>
-                                        <p id="date-header" className="text-3xl font-black text-slate-800 tracking-tighter">{activeDayKey.substring(0,4)} / {activeDayKey.substring(4,6)} / {activeDayKey.substring(6,8)}</p>
+                                        <p className="text-[9px] font-bold text-slate-300 uppercase tracking-widest mb-1">RECORD DATE</p>
+                                        <p id="date-header" className="text-2xl font-bold text-slate-800 tracking-tighter">{activeDayKey.substring(0,4)} / {activeDayKey.substring(4,6)} / {activeDayKey.substring(6,8)}</p>
                                     </div>
-                                    <button onClick={() => setIsModalOpen(false)} className="text-slate-200 text-6xl leading-none">&times;</button>
+                                    <button onClick={() => setIsModalOpen(false)} className="text-slate-200 text-5xl leading-none">&times;</button>
                                 </div>
 
                                 <div className="mb-10 relative">
-                                    <p className="text-[11px] font-black text-slate-400 uppercase tracking-widest mb-4 ml-1">✨ AI 智慧快速紀錄</p>
-                                    <textarea className="w-full bg-slate-50 p-6 rounded-[1.5rem] text-sm font-bold border-none outline-none focus:ring-4 ring-indigo-50 h-24 placeholder-slate-300 resize-none shadow-inner" placeholder="例如：在五十嵐喝了珍奶 60 元半糖少冰..." value={smartInput} onChange={(e) => setSmartInput(e.target.value)} />
-                                    <button onClick={parseSmartInput} disabled={isParsing || !smartInput.trim()} className="absolute bottom-4 right-4 bg-indigo-600 text-white px-6 py-2 rounded-xl text-xs font-black shadow-lg active:scale-95 transition-all">
-                                        {isParsing ? <i data-lucide="loader-2" className="animate-spin" style={{width:'14px'}}></i> : '✨ 自動填寫'}
+                                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-3 ml-1">✨ AI 智慧快速紀錄</p>
+                                    <textarea className="w-full bg-slate-50 p-5 rounded-[1.5rem] text-sm font-semibold border-none outline-none focus:ring-4 ring-indigo-50 h-24 placeholder-slate-300 resize-none shadow-inner" placeholder="例如：在五十嵐喝了珍奶 60 元半糖少冰..." value={smartInput} onChange={(e) => setSmartInput(e.target.value)} />
+                                    <button onClick={parseSmartInput} disabled={isParsing || !smartInput.trim()} className="absolute bottom-4 right-4 bg-indigo-600 text-white px-5 py-2 rounded-xl text-xs font-bold shadow-lg active:scale-95 transition-all">
+                                        {isParsing ? <i data-lucide="loader-2" className="animate-spin" style={{width:'12px'}}></i> : '✨ 自動填寫'}
                                     </button>
                                 </div>
 
-                                <div className="space-y-8 mb-10">
+                                <div className="space-y-6 mb-10">
                                     {tempRecords.map((rec, idx) => (
-                                        <div key={idx} className="bg-slate-50/50 p-8 rounded-[2rem] border border-slate-100 relative shadow-sm">
+                                        <div key={idx} className="bg-slate-50/50 p-6 rounded-[2rem] border border-slate-100 relative shadow-sm text-left">
                                             <div className="flex justify-between items-center mb-6">
-                                                <span className="bg-white px-4 py-1.5 rounded-full text-[10px] font-black text-slate-300 uppercase shadow-sm">Entry #{idx+1}</span>
-                                                <button onClick={() => setTempRecords(prev => prev.filter((_, i) => i !== idx))} className="text-red-300 hover:text-red-500"><i data-lucide="trash-2" style={{width:'24px'}}></i></button>
+                                                <span className="bg-white px-4 py-1.5 rounded-full text-[9px] font-bold text-slate-300 uppercase">Entry #{idx+1}</span>
+                                                <button onClick={() => setTempRecords(prev => prev.filter((_, i) => i !== idx))} className="text-red-300 hover:text-red-500"><i data-lucide="trash-2" style={{width:'20px'}}></i></button>
                                             </div>
-                                            <div className="grid grid-cols-3 gap-4 mb-6">
-                                                <div className="col-span-2"><input className="w-full bg-white p-5 rounded-xl text-base font-black outline-none border-none shadow-sm" value={rec.s} onChange={e => { const n = [...tempRecords]; n[idx].s = e.target.value; setTempRecords(n); }} placeholder="店家" /></div>
-                                                <div><input className="w-full bg-white p-5 rounded-xl text-base font-black outline-none border-none shadow-sm text-center" type="number" value={rec.p} onChange={e => { const n = [...tempRecords]; n[idx].p = e.target.value; setTempRecords(n); }} placeholder="$" /></div>
+                                            <div className="grid grid-cols-3 gap-3 mb-4">
+                                                <div className="col-span-2"><input className="w-full bg-white p-4 rounded-xl text-sm font-bold border-none shadow-sm" value={rec.s} onChange={e => { const n = [...tempRecords]; n[idx].s = e.target.value; setTempRecords(n); }} placeholder="店家" /></div>
+                                                <div><input className="w-full bg-white p-4 rounded-xl text-sm font-bold border-none shadow-sm text-center" type="number" value={rec.p} onChange={e => { const n = [...tempRecords]; n[idx].p = e.target.value; setTempRecords(n); }} placeholder="$" /></div>
                                             </div>
-                                            <input className="w-full bg-white p-5 rounded-xl text-base font-black outline-none mb-8 shadow-sm" value={rec.i} onChange={e => { const n = [...tempRecords]; n[idx].i = e.target.value; setTempRecords(n); }} placeholder="飲品內容" />
+                                            <input className="w-full bg-white p-4 rounded-xl text-sm font-bold border-none shadow-sm mb-6" value={rec.i} onChange={e => { const n = [...tempRecords]; n[idx].i = e.target.value; setTempRecords(n); }} placeholder="飲品內容" />
                                             <div className="flex justify-between items-center">
-                                                <button onClick={() => { const n = [...tempRecords]; n[idx].eco = !n[idx].eco; setTempRecords(n); }} className={`flex items-center gap-3 px-8 py-4 rounded-xl text-sm font-black transition-all ${rec.eco ? 'bg-emerald-500 text-white shadow-xl' : 'bg-white text-slate-300 border border-slate-100'}`}>♻️ 環保杯</button>
+                                                <button onClick={() => { const n = [...tempRecords]; n[idx].eco = !n[idx].eco; setTempRecords(n); }} className={`flex items-center gap-2 px-6 py-3 rounded-xl text-xs font-bold transition-all ${rec.eco ? 'bg-emerald-500 text-white shadow-xl' : 'bg-white text-slate-300 border border-slate-100'}`}>♻️</button>
                                                 <div className="flex gap-2">
-                                                    <span className="bg-blue-50 text-blue-500 px-4 py-2 rounded-xl text-[10px] font-black uppercase">{rec.ice}</span>
-                                                    <span className="bg-pink-50 text-pink-500 px-4 py-2 rounded-xl text-[10px] font-black uppercase">{rec.sug}</span>
+                                                    <span className="bg-blue-50 text-blue-500 px-3 py-1.5 rounded-xl text-[9px] font-bold uppercase">{rec.ice}</span>
+                                                    <span className="bg-pink-50 text-pink-500 px-3 py-1.5 rounded-xl text-[9px] font-bold uppercase">{rec.sug}</span>
                                                 </div>
                                             </div>
                                         </div>
                                     ))}
                                 </div>
 
-                                <button onClick={() => setTempRecords([...tempRecords, { p: "", s: "", i: "", ice: "微冰", sug: "微糖", eco: false }])} className="w-full py-6 border-2 border-dashed border-slate-100 rounded-[1.5rem] text-slate-300 font-black text-base mb-10 flex items-center justify-center gap-3 active:bg-slate-50 transition-all">+ 再喝一杯紀錄</button>
-                                <button onClick={() => { setDbData({...dbData, [activeDayKey]: tempRecords.filter(r => r.p !== "")}); setIsModalOpen(false); }} className="w-full bg-gradient-to-r from-purple-600 to-pink-500 text-white py-6 rounded-[1.5rem] font-black text-xl shadow-xl active:scale-[0.97] transition-all">儲存數據 (Cloud Sync)</button>
+                                <button onClick={() => setTempRecords([...tempRecords, { p: "", s: "", i: "", ice: "微冰", sug: "微糖", eco: false }])} className="w-full py-5 border-2 border-dashed border-slate-100 rounded-[1.5rem] text-slate-300 font-bold text-sm mb-8 flex items-center justify-center gap-3 active:bg-slate-50 transition-all">+ 再喝一杯紀錄</button>
+                                <button onClick={() => { setDbData({...dbData, [activeDayKey]: tempRecords.filter(r => r.p !== "")}); setIsModalOpen(false); }} className="w-full bg-gradient-to-r from-purple-600 to-pink-500 text-white py-6 rounded-[1.5rem] font-bold text-lg shadow-xl active:scale-[0.97] transition-all">儲存數據 (Cloud Sync)</button>
                             </div>
                         </div>
                     )}
