@@ -51,6 +51,28 @@
             width: 28px;
             height: 15px;
         }
+
+        /* 經典選單按鈕樣式 */
+        .opt-btn { 
+            border: 1px solid #EDF0F7; border-radius: 0.8rem; padding: 10px 0; text-align: center; 
+            color: #9CA3AF; background: #F9FAFB; font-size: 0.75rem; font-weight: 600; 
+            cursor: pointer; transition: all 0.15s ease; 
+        }
+        .ice-on { background: #3B82F6 !important; color: white !important; border-color: #3B82F6 !important; box-shadow: 0 4px 10px rgba(59, 130, 246, 0.2); }
+        .sugar-on { background: #EC4899 !important; color: white !important; border-color: #EC4899 !important; box-shadow: 0 4px 10px rgba(236, 72, 153, 0.2); }
+        .eco-on { background: #10B981 !important; color: white !important; border-color: #10B981 !important; box-shadow: 0 4px 10px rgba(16, 185, 129, 0.2); }
+        
+        #date-header { font-size: 1.5rem !important; font-weight: 700 !important; color: #1F2937; letter-spacing: -0.02em; }
+
+        /* 移除數字輸入框的上下調整按鈕 (Spinner) */
+        input::-webkit-outer-spin-button,
+        input::-webkit-inner-spin-button {
+            -webkit-appearance: none;
+            margin: 0;
+        }
+        input[type=number] {
+            -moz-appearance: textfield;
+        }
     </style>
 </head>
 <body>
@@ -153,9 +175,12 @@
                 if (!smartInput.trim() || isParsing) return;
                 setIsParsing(true);
                 try {
-                    const result = await callGemini(`解析：${smartInput}`, "解析 JSON: {price, store, item, ice, sugar, eco}");
+                    const result = await callGemini(`解析 JSON: {price, store, item, ice, sugar, eco}: ${smartInput}`, "你是一個飲料助手。");
                     const data = JSON.parse(result.replace(/```json|```/g, ''));
-                    setTempRecords([{ p: data.price || "", s: data.store || "", i: data.item || "", ice: data.ice || "微冰", sug: data.sugar || "微糖", eco: !!data.eco }, ...tempRecords.filter(r => r.p !== "")]);
+                    setTempRecords([{ 
+                        p: data.price || "", s: data.store || "", i: data.item || "", 
+                        ice: data.ice || "微冰", sug: data.sugar || "微糖", eco: !!data.eco 
+                    }, ...tempRecords.filter(r => r.p !== "")]);
                     setSmartInput("");
                 } catch (e) { console.error(e); }
                 finally { setIsParsing(false); }
@@ -173,6 +198,7 @@
             const openEdit = (dayData) => {
                 setActiveDayKey(dayData.key);
                 setTempRecords(dayData.drinks.length > 0 ? [...dayData.drinks] : [{ p: "", s: "", i: "", ice: "微冰", sug: "微糖", eco: false }]);
+                setSmartInput("");
                 setIsModalOpen(true);
             };
 
@@ -230,7 +256,7 @@
                         </div>
                     </div>
 
-                    {/* AI 分析按鈕 - 三角形放大 25% 且維持圓潤扁平 */}
+                    {/* AI 分析按鈕 */}
                     <button onClick={getAIAnalysis} className="w-full bg-white border border-purple-100 mb-8 p-5 rounded-[1.8rem] flex items-center justify-between shadow-sm active:scale-[0.98] transition-all">
                         <div className="flex items-center gap-4">
                             <span className="text-2xl">✨</span>
@@ -244,14 +270,13 @@
                         </div>
                     </button>
 
-                    {/* 月曆視窗 - 修正比例使其接近正方形，三角形精確對齊 MON/FRI */}
+                    {/* 月曆視窗 */}
                     {viewMode === 'calendar' ? (
                         <div className="glass-card p-5 mb-10 pb-6">
                             <div className="relative flex justify-center items-center mb-4 h-12">
                                 <div 
                                     onClick={() => changeMonth(-1)} 
                                     className="nav-tri-btn absolute left-[14.2%]" 
-                                    style={{ transform: 'translateX(0)' }}
                                 >
                                     <TriangleIcon direction="left" />
                                 </div>
@@ -259,7 +284,6 @@
                                 <div 
                                     onClick={() => changeMonth(1)} 
                                     className="nav-tri-btn absolute right-[14.2%]"
-                                    style={{ transform: 'translateX(0)' }}
                                 >
                                     <TriangleIcon direction="right" />
                                 </div>
@@ -320,51 +344,119 @@
                         </div>
                     )}
 
-                    {/* 編輯視窗 */}
+                    {/* 編輯視窗 - 修復輸入資料的畫面 */}
                     {isModalOpen && (
                         <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-[999] flex items-end">
-                            <div className="bg-white w-full rounded-t-[2.5rem] p-8 pb-12 shadow-2xl max-h-[92vh] overflow-y-auto animate-slide-up">
-                                <div className="flex justify-between items-start mb-8">
-                                    <div>
-                                        <p className="text-[9px] font-bold text-slate-300 uppercase tracking-widest mb-1">RECORD DATE</p>
-                                        <p id="date-header" className="text-2xl font-bold text-slate-800 tracking-tighter">{activeDayKey.substring(0,4)} / {activeDayKey.substring(4,6)} / {activeDayKey.substring(6,8)}</p>
-                                    </div>
-                                    <button onClick={() => setIsModalOpen(false)} className="text-slate-200 text-5xl leading-none">&times;</button>
+                            <div className="bg-white w-full rounded-t-[2.5rem] p-6 pb-12 shadow-2xl max-h-[92vh] overflow-y-auto animate-slide-up">
+                                <div className="flex justify-between items-center mb-6 px-1">
+                                    <span id="date-header">{activeDayKey.substring(0,4)} / {activeDayKey.substring(4,6)} / {activeDayKey.substring(6,8)}</span>
+                                    <button onClick={() => setIsModalOpen(false)} className="text-gray-300 text-4xl leading-none p-2">&times;</button>
                                 </div>
 
-                                <div className="mb-10 relative">
-                                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-3 ml-1">✨ AI 智慧快速紀錄</p>
-                                    <textarea className="w-full bg-slate-50 p-5 rounded-[1.5rem] text-sm font-semibold border-none outline-none focus:ring-4 ring-indigo-50 h-24 placeholder-slate-300 resize-none shadow-inner" placeholder="例如：在五十嵐喝了珍奶 60 元半糖少冰..." value={smartInput} onChange={(e) => setSmartInput(e.target.value)} />
-                                    <button onClick={parseSmartInput} disabled={isParsing || !smartInput.trim()} className="absolute bottom-4 right-4 bg-indigo-600 text-white px-5 py-2 rounded-xl text-xs font-bold shadow-lg active:scale-95 transition-all">
-                                        {isParsing ? <i data-lucide="loader-2" className="animate-spin" style={{width:'12px'}}></i> : '✨ 自動填寫'}
+                                <div className="mb-8 relative">
+                                    <textarea 
+                                        className="w-full p-5 rounded-[1.2rem] bg-purple-50 text-sm text-purple-800 font-medium border-none outline-none placeholder-purple-300 resize-none h-24 shadow-inner"
+                                        placeholder="智慧輸入：昨天在 50 嵐喝了拿鐵 65 元，半糖少冰，環保杯"
+                                        value={smartInput}
+                                        onChange={(e) => setSmartInput(e.target.value)}
+                                    />
+                                    <button 
+                                        onClick={parseSmartInput} 
+                                        disabled={isParsing || !smartInput.trim()}
+                                        className="absolute bottom-3 right-3 bg-purple-500 text-white px-5 py-2.5 rounded-xl text-xs font-bold shadow-md active:scale-95 transition-all disabled:opacity-50"
+                                    >
+                                        {isParsing ? <i data-lucide="loader-2" className="animate-spin" style={{width:'14px'}}></i> : '✨ 自動填寫'}
                                     </button>
                                 </div>
 
-                                <div className="space-y-6 mb-10">
+                                <div className="space-y-8 mb-6">
                                     {tempRecords.map((rec, idx) => (
-                                        <div key={idx} className="bg-slate-50/50 p-6 rounded-[2rem] border border-slate-100 relative shadow-sm text-left">
-                                            <div className="flex justify-between items-center mb-6">
-                                                <span className="bg-white px-4 py-1.5 rounded-full text-[9px] font-bold text-slate-300 uppercase">Entry #{idx+1}</span>
-                                                <button onClick={() => setTempRecords(prev => prev.filter((_, i) => i !== idx))} className="text-red-300 hover:text-red-500"><i data-lucide="trash-2" style={{width:'20px'}}></i></button>
-                                            </div>
-                                            <div className="grid grid-cols-3 gap-3 mb-4">
-                                                <div className="col-span-2"><input className="w-full bg-white p-4 rounded-xl text-sm font-bold border-none shadow-sm" value={rec.s} onChange={e => { const n = [...tempRecords]; n[idx].s = e.target.value; setTempRecords(n); }} placeholder="店家" /></div>
-                                                <div><input className="w-full bg-white p-4 rounded-xl text-sm font-bold border-none shadow-sm text-center" type="number" value={rec.p} onChange={e => { const n = [...tempRecords]; n[idx].p = e.target.value; setTempRecords(n); }} placeholder="$" /></div>
-                                            </div>
-                                            <input className="w-full bg-white p-4 rounded-xl text-sm font-bold border-none shadow-sm mb-6" value={rec.i} onChange={e => { const n = [...tempRecords]; n[idx].i = e.target.value; setTempRecords(n); }} placeholder="飲品內容" />
-                                            <div className="flex justify-between items-center">
-                                                <button onClick={() => { const n = [...tempRecords]; n[idx].eco = !n[idx].eco; setTempRecords(n); }} className={`flex items-center gap-2 px-6 py-3 rounded-xl text-xs font-bold transition-all ${rec.eco ? 'bg-emerald-500 text-white shadow-xl' : 'bg-white text-slate-300 border border-slate-100'}`}>♻️</button>
-                                                <div className="flex gap-2">
-                                                    <span className="bg-blue-50 text-blue-500 px-3 py-1.5 rounded-xl text-[9px] font-bold uppercase">{rec.ice}</span>
-                                                    <span className="bg-pink-50 text-pink-500 px-3 py-1.5 rounded-xl text-[9px] font-bold uppercase">{rec.sug}</span>
+                                        <div key={idx} className="pb-6 border-b-2 border-dashed border-gray-100 last:border-none">
+                                            {/* 紀錄卡片頂部灰列 */}
+                                            <div className="flex justify-between items-center bg-gray-50 p-4 rounded-2xl mb-5">
+                                                <span className="text-[10px] font-bold text-pink-400 uppercase tracking-widest">飲品紀錄 #{idx+1}</span>
+                                                <div className="flex items-center space-x-3">
+                                                    <div 
+                                                        className={`opt-btn px-3.5 border-emerald-100 text-emerald-600 ${rec.eco ? 'eco-on' : ''}`}
+                                                        onClick={() => { const n = [...tempRecords]; n[idx].eco = !n[idx].eco; setTempRecords(n); }}
+                                                    >
+                                                        ♻️
+                                                    </div>
+                                                    <div className="flex items-center">
+                                                        <span className="text-emerald-500 font-bold text-base mr-1">$</span>
+                                                        <input 
+                                                            className="w-16 text-right bg-transparent font-bold text-emerald-600 outline-none text-2xl"
+                                                            type="number" value={rec.p} 
+                                                            onChange={e => { const n = [...tempRecords]; n[idx].p = e.target.value; setTempRecords(n); }}
+                                                            placeholder="0"
+                                                        />
+                                                    </div>
+                                                    <button 
+                                                        onClick={() => setTempRecords(prev => prev.filter((_, i) => i !== idx))}
+                                                        className="text-red-300 text-2xl pl-2 active:text-red-500"
+                                                    >
+                                                        🗑️
+                                                    </button>
                                                 </div>
+                                            </div>
+
+                                            {/* 店家與品項輸入 */}
+                                            <div className="grid grid-cols-2 gap-4 mb-5">
+                                                <div className="space-y-1.5 text-left">
+                                                    <p className="text-[10px] text-gray-400 font-bold ml-1">店家</p>
+                                                    <input 
+                                                        className="w-full p-4 rounded-xl bg-gray-100 text-sm font-bold outline-none border-none"
+                                                        value={rec.s} onChange={e => { const n = [...tempRecords]; n[idx].s = e.target.value; setTempRecords(n); }}
+                                                        placeholder="店名"
+                                                    />
+                                                </div>
+                                                <div className="space-y-1.5 text-left">
+                                                    <p className="text-[10px] text-gray-400 font-bold ml-1">品項</p>
+                                                    <input 
+                                                        className="w-full p-4 rounded-xl bg-gray-100 text-sm font-bold outline-none border-none"
+                                                        value={rec.i} onChange={e => { const n = [...tempRecords]; n[idx].i = e.target.value; setTempRecords(n); }}
+                                                        placeholder="品項"
+                                                    />
+                                                </div>
+                                            </div>
+
+                                            {/* 冰塊選擇網格 */}
+                                            <div className="grid grid-cols-4 gap-2 mb-4">
+                                                {['正常','少冰','微冰','去冰','完去','常溫','溫','熱'].map(o => (
+                                                    <div 
+                                                        key={o}
+                                                        className={`opt-btn ${rec.ice === o ? 'ice-on' : ''}`}
+                                                        onClick={() => { const n = [...tempRecords]; n[idx].ice = o; setTempRecords(n); }}
+                                                    >{o}</div>
+                                                ))}
+                                            </div>
+
+                                            {/* 甜度選擇網格 */}
+                                            <div className="grid grid-cols-4 gap-2">
+                                                {['全糖','九分','少糖','半糖','微糖','二分','一分','無糖'].map(o => (
+                                                    <div 
+                                                        key={o}
+                                                        className={`opt-btn ${rec.sug === o ? 'sugar-on' : ''}`}
+                                                        onClick={() => { const n = [...tempRecords]; n[idx].sug = o; setTempRecords(n); }}
+                                                    >{o}</div>
+                                                ))}
                                             </div>
                                         </div>
                                     ))}
                                 </div>
 
-                                <button onClick={() => setTempRecords([...tempRecords, { p: "", s: "", i: "", ice: "微冰", sug: "微糖", eco: false }])} className="w-full py-5 border-2 border-dashed border-slate-100 rounded-[1.5rem] text-slate-300 font-bold text-sm mb-8 flex items-center justify-center gap-3 active:bg-slate-50 transition-all">+ 再喝一杯紀錄</button>
-                                <button onClick={() => { setDbData({...dbData, [activeDayKey]: tempRecords.filter(r => r.p !== "")}); setIsModalOpen(false); }} className="w-full bg-gradient-to-r from-purple-600 to-pink-500 text-white py-6 rounded-[1.5rem] font-bold text-lg shadow-xl active:scale-[0.97] transition-all">儲存數據 (Cloud Sync)</button>
+                                <button 
+                                    onClick={() => setTempRecords([...tempRecords, { p: "", s: "", i: "", ice: "正常", sug: "全糖", eco: false }])}
+                                    className="w-full border-2 border-dashed border-purple-100 text-purple-300 py-5 rounded-2xl font-bold text-sm mb-5 active:bg-purple-50 transition-colors"
+                                >
+                                    + 再喝一杯
+                                </button>
+                                <button 
+                                    onClick={() => { setDbData({...dbData, [activeDayKey]: tempRecords.filter(r => r.p !== "")}); setIsModalOpen(false); }}
+                                    className="w-full py-5 rounded-2xl font-bold text-xl text-white shadow-xl active:scale-[0.97] transition-all bg-gradient-to-r from-purple-600 to-pink-500"
+                                >
+                                    儲存今日數據
+                                </button>
                             </div>
                         </div>
                     )}
