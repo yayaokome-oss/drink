@@ -43,16 +43,22 @@
     <script type="text/babel">
         const { useState, useEffect, useMemo } = React;
 
-        // --- Firebase 配置 (模擬環境變數) ---
-        const firebaseConfig = JSON.parse(__firebase_config);
-        const appId = typeof __app_id !== 'undefined' ? __app_id : 'drink-diary-pro';
+        // --- 安全取得環境變數，防止本地開啟時報錯 ---
+        let firebaseConfig = {};
+        try {
+            firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : {};
+        } catch (e) {
+            console.warn("未偵測到雲端配置，將切換為本地儲存模式。");
+        }
+        
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'drink-diary-pro-local';
         const apiKey = ""; 
 
         function App() {
             const [dbData, setDbData] = useState(() => JSON.parse(localStorage.getItem('drink_v_final_pro')) || {});
             const [viewMode, setViewMode] = useState('calendar'); 
-            const [currentYear, setCurrentYear] = useState(2026);
-            const [currentMonth, setCurrentMonth] = useState(0); 
+            const [currentYear, setCurrentYear] = useState(new Date().getFullYear());
+            const [currentMonth, setCurrentMonth] = useState(new Date().getMonth()); 
             const [isModalOpen, setIsModalOpen] = useState(false);
             const [activeDayKey, setActiveDayKey] = useState("");
             const [tempRecords, setTempRecords] = useState([]);
@@ -114,6 +120,9 @@
             };
 
             const callGemini = async (prompt, system) => {
+                if (!apiKey) {
+                    return "請先設定 Gemini API Key 以啟用 AI 功能。";
+                }
                 const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${apiKey}`;
                 const response = await fetch(url, {
                     method: 'POST',
@@ -172,7 +181,9 @@
                         </div>
                         <div className="bg-white px-4 py-1.5 rounded-full border border-slate-100 shadow-sm flex items-center gap-2">
                             <div className="w-2 h-2 rounded-full bg-emerald-400"></div>
-                            <span className="text-[10px] text-slate-400 uppercase tracking-widest">Cloud Sync</span>
+                            <span className="text-[10px] text-slate-400 uppercase tracking-widest">
+                                {typeof __firebase_config !== 'undefined' ? 'Cloud Sync' : 'Local Mode'}
+                            </span>
                         </div>
                     </div>
 
@@ -181,7 +192,7 @@
                         <h1 className="text-[10px] text-slate-300 uppercase tracking-[0.5em]">Drink Diary Pro</h1>
                     </header>
 
-                    {/* 六大數據看板 - 圓角減少 30% */}
+                    {/* 六大數據看板 */}
                     <div className="grid grid-cols-3 gap-3 mb-8">
                         <div className="bg-white p-4 rounded-[1.4rem] border border-slate-50 shadow-sm flex flex-col items-center">
                             <i data-lucide="store" className="text-purple-400 mb-2 opacity-60" style={{width:'14px'}}></i>
@@ -212,7 +223,7 @@
                         </div>
                     </div>
 
-                    {/* AI 按鈕 - 圓角減少 30% */}
+                    {/* AI 按鈕 */}
                     <button onClick={getAIAnalysis} className="w-full bg-gradient-to-br from-indigo-50/50 to-purple-50/50 border border-indigo-100/50 mb-10 p-6 rounded-[1.75rem] flex items-center justify-between active:scale-[0.98] transition-all">
                         <div className="flex items-center gap-5">
                             <div className="bg-white p-3.5 rounded-xl shadow-sm text-indigo-500 flex items-center">
@@ -226,7 +237,7 @@
                         <i data-lucide="chevron-right" className="text-indigo-200" style={{width:'24px'}}></i>
                     </button>
 
-                    {/* 主要內容 - 月曆容器圓角減少 */}
+                    {/* 主要內容 */}
                     {viewMode === 'calendar' ? (
                         <div className="bg-white p-8 rounded-[2.45rem] shadow-sm border border-slate-50">
                             <div className="flex justify-between items-center mb-10">
@@ -289,7 +300,7 @@
                         </div>
                     )}
 
-                    {/* 編輯 Modal - 頂部圓角減少 */}
+                    {/* 編輯 Modal */}
                     {isModalOpen && (
                         <div className="fixed inset-0 bg-slate-900/30 backdrop-blur-sm z-[99] flex items-end">
                             <div className="bg-white w-full rounded-t-[2.8rem] p-10 pb-16 shadow-2xl max-h-[92vh] overflow-y-auto animate-slide-up">
@@ -304,7 +315,7 @@
                                 <div className="mb-10 relative">
                                     <p className="text-[11px] text-slate-400 uppercase tracking-widest mb-4 ml-2">✨ AI 智慧快速紀錄</p>
                                     <textarea className="w-full bg-slate-50 p-6 rounded-[1.4rem] text-sm border-none outline-none focus:ring-4 ring-indigo-50 h-24 placeholder-slate-300 resize-none shadow-inner" placeholder="例如：在五十嵐喝了珍奶 60 元半糖少冰..." value={smartInput} onChange={(e) => setSmartInput(e.target.value)} />
-                                    <button onClick={parseSmartInput} disabled={isParsing || !smartInput.trim()} className="absolute bottom-4 right-4 bg-indigo-600 text-white px-6 py-2.5 rounded-xl text-xs shadow-lg active:scale-95 transition-all disabled:opacity-30 flex items-center gap-2">
+                                    <button onClick={parseSmartInput} disabled={isParsing || !smartInput.trim()} className="absolute bottom-4 right-4 bg-indigo-600 text-white px-6 py-2.5 rounded-2xl text-xs shadow-lg active:scale-95 transition-all disabled:opacity-30 flex items-center gap-2">
                                         {isParsing ? <i data-lucide="loader-2" className="animate-spin" style={{width:'14px'}}></i> : <i data-lucide="zap" style={{width:'14px'}}></i>} 自動填寫
                                     </button>
                                 </div>
