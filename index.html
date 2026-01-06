@@ -270,20 +270,20 @@
                         </div>
                     </button>
 
-                    {/* 月曆視窗 */}
+                    {/* 月曆視窗 - 三角形位置修正 (SUN/MON 之間 與 FRI/SAT 之間) */}
                     {viewMode === 'calendar' ? (
-                        <div className="glass-card p-5 mb-10 pb-6">
+                        <div className="glass-card p-5 mb-10 pb-6 text-center">
                             <div className="relative flex justify-center items-center mb-4 h-12">
                                 <div 
                                     onClick={() => changeMonth(-1)} 
-                                    className="nav-tri-btn absolute left-[14.2%]" 
+                                    className="nav-tri-btn absolute left-[14.28%] -translate-x-1/2" 
                                 >
                                     <TriangleIcon direction="left" />
                                 </div>
                                 <p className="text-lg font-bold text-slate-700 tracking-widest z-10">{currentYear} / {String(currentMonth + 1).padStart(2, '0')}</p>
                                 <div 
                                     onClick={() => changeMonth(1)} 
-                                    className="nav-tri-btn absolute right-[14.2%]"
+                                    className="nav-tri-btn absolute right-[14.28%] translate-x-1/2"
                                 >
                                     <TriangleIcon direction="right" />
                                 </div>
@@ -371,7 +371,7 @@
 
                                 <div className="space-y-8 mb-6">
                                     {tempRecords.map((rec, idx) => (
-                                        <div key={idx} className="pb-6 border-b-2 border-dashed border-gray-100 last:border-none">
+                                        <div key={idx} className="pb-6 border-b-2 border-dashed border-gray-100 last:border-none text-left">
                                             {/* 紀錄卡片頂部灰列 */}
                                             <div className="flex justify-between items-center bg-gray-50 p-4 rounded-2xl mb-5">
                                                 <span className="text-[10px] font-bold text-pink-400 uppercase tracking-widest">飲品紀錄 #{idx+1}</span>
@@ -393,7 +393,7 @@
                                                     </div>
                                                     <button 
                                                         onClick={() => setTempRecords(prev => prev.filter((_, i) => i !== idx))}
-                                                        className="text-red-300 text-2xl pl-2 active:text-red-500"
+                                                        className="text-red-300 text-lg pl-2 active:text-red-500"
                                                     >
                                                         🗑️
                                                     </button>
