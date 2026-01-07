@@ -164,18 +164,25 @@
                 setErrorMessage("");
                 try {
                     if (auth.currentUser?.isAnonymous) {
-                        // 匿名帳號，執行 link
-                        await linkWithPopup(auth.currentUser, googleProvider);
+                        // 嘗試將當前匿名帳號與 Google 綁定
+                        try {
+                            await linkWithPopup(auth.currentUser, googleProvider);
+                        } catch (linkError) {
+                            // 關鍵修正：如果偵測到帳號已被綁定，改為直接登入該帳號
+                            if (linkError.code === 'auth/credential-already-in-use') {
+                                await signInWithPopup(auth, googleProvider);
+                            } else {
+                                throw linkError;
+                            }
+                        }
                     } else {
-                        // 已經登入過或已綁定，執行 signIn
+                        // 如果已經是正式使用者，則執行普通登入切換
                         await signInWithPopup(auth, googleProvider);
                     }
                 } catch (e) {
                     console.error("Google 登入失敗", e);
                     if (e.code === 'auth/popup-blocked') {
                         setErrorMessage("登入視窗被瀏覽器攔截，請允許彈窗後再試一次。");
-                    } else if (e.code === 'auth/credential-already-in-use') {
-                        setErrorMessage("此 Google 帳號已被其他使用者綁定。");
                     } else {
                         setErrorMessage("登入過程發生錯誤，請稍後再試。");
                     }
@@ -314,7 +321,7 @@
                         <p className="text-[9px] font-bold text-slate-300 uppercase tracking-[0.5em]">Drink Diary Pro</p>
                     </header>
 
-                    {/* 六大數據看板 */}
+                    {/* 六大數據看板 - 字體放大 */}
                     <div className="grid grid-cols-3 gap-2 mb-2">
                         <div className="glass-card p-3 flex flex-col items-center">
                             <p className="text-purple-400 text-[8px] font-bold uppercase tracking-tighter mb-1">最愛店家</p>
