@@ -124,10 +124,12 @@
             const [tempRecords, setTempRecords] = useState([]);
             const [smartInput, setSmartInput] = useState("");
             const [isParsing, setIsParsing] = useState(false);
+            const [isLoggingIn, setIsLoggingIn] = useState(false);
+            const [errorMessage, setErrorMessage] = useState("");
 
             const { auth, db, googleProvider, linkWithPopup, signInWithPopup, signInAnonymously, onAuthStateChanged, doc, onSnapshot, setDoc, collection, appId } = window.fb;
 
-            // 初始化登入狀態
+            // (1) 初始化登入狀態
             useEffect(() => {
                 const unsubscribe = onAuthStateChanged(auth, async (currUser) => {
                     if (!currUser) {
@@ -139,7 +141,7 @@
                 return () => unsubscribe();
             }, []);
 
-            // 監聽雲端資料
+            // (2) 監聽雲端資料
             useEffect(() => {
                 if (!user) return;
                 const docRef = doc(db, 'artifacts', appId, 'users', user.uid, 'data', 'records');
@@ -157,14 +159,28 @@
             }, [viewMode, isModalOpen]);
 
             const handleGoogleLogin = async () => {
+                if (isLoggingIn) return;
+                setIsLoggingIn(true);
+                setErrorMessage("");
                 try {
                     if (auth.currentUser?.isAnonymous) {
+                        // 匿名帳號，執行 link
                         await linkWithPopup(auth.currentUser, googleProvider);
                     } else {
+                        // 已經登入過或已綁定，執行 signIn
                         await signInWithPopup(auth, googleProvider);
                     }
                 } catch (e) {
                     console.error("Google 登入失敗", e);
+                    if (e.code === 'auth/popup-blocked') {
+                        setErrorMessage("登入視窗被瀏覽器攔截，請允許彈窗後再試一次。");
+                    } else if (e.code === 'auth/credential-already-in-use') {
+                        setErrorMessage("此 Google 帳號已被其他使用者綁定。");
+                    } else {
+                        setErrorMessage("登入過程發生錯誤，請稍後再試。");
+                    }
+                } finally {
+                    setIsLoggingIn(false);
                 }
             };
 
@@ -232,7 +248,7 @@
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({
                             contents: [{ parts: [{ text: `解析這段文字為 JSON {price:number, store:string, item:string, ice:string, sugar:string, eco:boolean}: ${smartInput}` }] }],
-                            systemInstruction: { parts: [{ text: "提取飲品資訊。" }] }
+                            systemInstruction: { parts: [{ text: "提取飲品資訊。冰塊：正常,少冰,微冰,去冰,完去,常溫,溫,熱。甜度：全糖,九分,少糖,半糖,微糖,二分,一分,無糖。" }] }
                         })
                     });
                     const resJson = await response.json();
@@ -275,14 +291,23 @@
                         </div>
                         <button 
                             onClick={handleGoogleLogin}
-                            className="bg-white px-4 py-1.5 rounded-full border border-slate-100 shadow-sm flex items-center gap-2 active:scale-95 transition-all"
+                            disabled={isLoggingIn}
+                            className="bg-white px-4 py-1.5 rounded-full border border-slate-100 shadow-sm flex items-center gap-2 active:scale-95 transition-all disabled:opacity-50"
                         >
-                            <div className={`w-2 h-2 rounded-full ${user?.isAnonymous ? 'bg-amber-400' : 'bg-emerald-400 animate-pulse'}`}></div>
+                            <div className={`w-2 h-2 rounded-full ${user?.isAnonymous ? (isLoggingIn ? 'bg-blue-400 animate-spin' : 'bg-amber-400') : 'bg-emerald-400 animate-pulse'}`}></div>
                             <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">
-                                {user?.isAnonymous ? '備份到 Google' : '已同步雲端'}
+                                {isLoggingIn ? '連線中...' : (user?.isAnonymous ? '備份到 Google' : '已同步雲端')}
                             </span>
                         </button>
                     </div>
+
+                    {/* 錯誤提示訊息盒 */}
+                    {errorMessage && (
+                        <div className="mb-6 p-4 bg-red-50 border border-red-100 rounded-2xl flex justify-between items-center animate-slide-up">
+                            <p className="text-xs text-red-500 font-medium">{errorMessage}</p>
+                            <button onClick={() => setErrorMessage("")} className="text-red-300 text-xl leading-none px-2">&times;</button>
+                        </div>
+                    )}
 
                     <header className="text-center mb-8">
                         <h1 className="text-5xl mb-2 drop-shadow-sm opacity-90">🧋</h1>
@@ -305,7 +330,7 @@
                         </div>
                     </div>
 
-                    <div className="grid grid-cols-3 gap-2 mb-8">
+                    <div className="grid grid-cols-3 gap-2 mb-6">
                         <div className="glass-card py-4 flex flex-col items-center">
                             <p className="text-slate-400 text-[9px] font-semibold mb-0.5">總杯數</p>
                             <p className="text-xl font-bold text-slate-700 leading-none">{stats.total}</p>
