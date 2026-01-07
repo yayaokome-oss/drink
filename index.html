@@ -16,19 +16,45 @@
     
     <style>
         html { -webkit-text-size-adjust: 100%; }
-        body { background-color: #F8F9FE; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang TC", sans-serif; -webkit-tap-highlight-color: transparent; }
-        .glass-card { background: white; border-radius: 1.5rem; border: 1px solid #EEF0F7; box-shadow: 0 4px 12px rgba(0,0,0,0.03); }
+        body { 
+            background-color: #F8F9FE; 
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang TC", "Hiragino Sans GB", "Microsoft JhengHei", sans-serif;
+            -webkit-tap-highlight-color: transparent;
+        }
+        .glass-card { 
+            background: white; 
+            border-radius: 1.5rem; 
+            border: 1px solid #EEF0F7; 
+            box-shadow: 0 4px 12px rgba(0,0,0,0.03); 
+        }
         @keyframes slideUp { from { transform: translateY(100%); } to { transform: translateY(0); } }
         .animate-slide-up { animation: slideUp 0.4s cubic-bezier(0.4, 0, 0.2, 1); }
-        .nav-tri-btn { cursor: pointer; transition: all 0.2s ease; display: flex; align-items: center; justify-content: center; padding: 8px; }
+
+        .nav-tri-btn {
+            cursor: pointer;
+            transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+            user-select: none;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 8px;
+        }
         .nav-tri-btn:active { transform: scale(0.8); opacity: 0.6; }
         .tri-svg { fill: #D8B4FE; width: 28px; height: 15px; }
-        .opt-btn { border: 1px solid #EDF0F7; border-radius: 0.8rem; padding: 10px 0; text-align: center; color: #9CA3AF; background: #F9FAFB; font-size: 0.75rem; font-weight: 600; cursor: pointer; transition: all 0.15s ease; }
-        .ice-on { background: #3B82F6 !important; color: white !important; border-color: #3B82F6 !important; }
-        .sugar-on { background: #EC4899 !important; color: white !important; border-color: #EC4899 !important; }
-        .eco-on { background: #10B981 !important; color: white !important; border-color: #10B981 !important; }
-        #date-header { font-size: 1.5rem !important; font-weight: 700; color: #1F2937; }
+
+        .opt-btn { 
+            border: 1px solid #EDF0F7; border-radius: 0.8rem; padding: 10px 0; text-align: center; 
+            color: #9CA3AF; background: #F9FAFB; font-size: 0.75rem; font-weight: 600; 
+            cursor: pointer; transition: all 0.15s ease; 
+        }
+        .ice-on { background: #3B82F6 !important; color: white !important; border-color: #3B82F6 !important; box-shadow: 0 4px 10px rgba(59, 130, 246, 0.2); }
+        .sugar-on { background: #EC4899 !important; color: white !important; border-color: #EC4899 !important; box-shadow: 0 4px 10px rgba(236, 72, 153, 0.2); }
+        .eco-on { background: #10B981 !important; color: white !important; border-color: #10B981 !important; box-shadow: 0 4px 10px rgba(16, 185, 129, 0.2); }
+        
+        #date-header { font-size: 1.5rem !important; font-weight: 700 !important; color: #1F2937; letter-spacing: -0.02em; }
+
         input::-webkit-outer-spin-button, input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+        input[type=number] { -moz-appearance: textfield; }
     </style>
 </head>
 <body>
@@ -70,25 +96,16 @@
             const [activeDayKey, setActiveDayKey] = useState("");
             const [tempRecords, setTempRecords] = useState([]);
 
-            // Google 登入功能
             const login = async () => {
                 const provider = new firebase.auth.GoogleAuthProvider();
-                try {
-                    await auth.signInWithPopup(provider);
-                } catch (e) {
-                    alert("登入失敗：" + e.message);
-                }
+                try { await auth.signInWithPopup(provider); } catch (e) { alert("登入失敗"); }
             };
 
-            const logout = () => auth.signOut();
-
-            // 監聽登入狀態
             useEffect(() => {
                 const unsubscribe = auth.onAuthStateChanged(u => {
                     setUser(u);
                     if (!u) {
                         setSyncStatus('offline');
-                        // 未登入時嘗試讀取本地緩存
                         const local = localStorage.getItem('drink_v_ultimate_pro');
                         if (local) setDbData(JSON.parse(local));
                     }
@@ -96,166 +113,127 @@
                 return () => unsubscribe();
             }, []);
 
-            // 處理雲端即時同步
             useEffect(() => {
                 if (!user) return;
-
                 const docRef = db.collection('artifacts').doc(appId).collection('users').doc(user.uid).collection('data').doc('records');
-                setSyncStatus('connecting');
-
                 const unsubscribe = docRef.onSnapshot(doc => {
                     if (doc.exists) {
                         const cloudData = doc.data() || {};
                         setDbData(cloudData);
                         localStorage.setItem('drink_v_ultimate_pro', JSON.stringify(cloudData));
                         setSyncStatus('synced');
-                    } else {
-                        setSyncStatus('synced');
-                    }
-                }, err => {
-                    console.error(err);
-                    setSyncStatus('error');
-                });
-
+                    } else { setSyncStatus('synced'); }
+                }, () => setSyncStatus('error'));
                 return () => unsubscribe();
             }, [user]);
 
             const saveData = async (newData) => {
                 setDbData(newData);
                 localStorage.setItem('drink_v_ultimate_pro', JSON.stringify(newData));
-
                 if (user) {
                     try {
                         setSyncStatus('connecting');
-                        await db.collection('artifacts').doc(appId)
-                                .collection('users').doc(user.uid)
-                                .collection('data').doc('records')
-                                .set(newData);
+                        await db.collection('artifacts').doc(appId).collection('users').doc(user.uid).collection('data').doc('records').set(newData);
                         setSyncStatus('synced');
-                    } catch (e) {
-                        setSyncStatus('error');
-                    }
+                    } catch (e) { setSyncStatus('error'); }
                 }
             };
 
-            // 圖示更新
             useEffect(() => { if (window.lucide) window.lucide.createIcons(); }, [viewMode, isModalOpen, syncStatus, user]);
 
             const stats = useMemo(() => {
                 const all = Object.values(dbData).flat();
                 const cost = all.reduce((s, d) => s + (Number(d.p) || 0), 0);
                 const getTop = (arr) => {
-                    if (!arr.length) return "無";
+                    if (!arr.length) return "尚未記錄";
                     const map = arr.reduce((a, b) => { a[b] = (a[b] || 0) + 1; return a; }, {});
                     return Object.keys(map).sort((a, b) => map[b] - map[a])[0];
                 };
                 return {
-                    total: all.length, cost,
-                    eco: all.filter(d => d.eco).length,
+                    total: all.length, cost, eco: all.filter(d => d.eco).length,
                     store: getTop(all.map(d => d.s).filter(Boolean)),
                     item: getTop(all.map(d => d.i).filter(Boolean)),
                     avg: all.length ? Math.round(cost / all.length) : 0
                 };
             }, [dbData]);
 
-            const monthSummary = useMemo(() => {
-                const prefix = `${currentYear}${String(currentMonth + 1).padStart(2, '0')}`;
-                const drinks = Object.keys(dbData).filter(k => k.startsWith(prefix)).flatMap(k => dbData[k]);
-                return { count: drinks.length, cost: drinks.reduce((s, d) => s + (Number(d.p) || 0), 0) };
-            }, [dbData, currentYear, currentMonth]);
-
-            const calendarDays = useMemo(() => {
-                const firstDay = new Date(currentYear, currentMonth, 1).getDay();
-                const daysInMonth = new Date(currentYear, currentMonth + 1, 0).getDate();
-                const days = Array(firstDay).fill(null);
-                for (let i = 1; i <= daysInMonth; i++) {
-                    const key = `${currentYear}${String(currentMonth + 1).padStart(2, '0')}${String(i).padStart(2, '0')}`;
-                    days.push({ day: i, key, drinks: dbData[key] || [] });
-                }
-                return days;
-            }, [currentYear, currentMonth, dbData]);
-
             return (
                 <div className="min-h-screen p-4 max-w-md mx-auto">
                     {/* 頂部導覽 */}
-                    <div className="flex justify-between items-center mb-6">
+                    <div className="flex justify-between items-center mb-8">
                         <div className="flex bg-white p-0.5 rounded-2xl shadow-sm border border-slate-100">
                             <button onClick={() => setViewMode('calendar')} className={`p-2.5 rounded-xl transition-all ${viewMode === 'calendar' ? 'bg-indigo-600 text-white shadow-md' : 'text-slate-400'}`}>
-                                <i data-lucide="calendar" className="w-4 h-4"></i>
+                                <i data-lucide="calendar" style={{width:'18px', height:'18px'}}></i>
                             </button>
                             <button onClick={() => setViewMode('list')} className={`p-2.5 rounded-xl transition-all ${viewMode === 'list' ? 'bg-indigo-600 text-white shadow-md' : 'text-slate-400'}`}>
-                                <i data-lucide="history" className="w-4 h-4"></i>
+                                <i data-lucide="history" style={{width:'18px', height:'18px'}}></i>
                             </button>
                         </div>
-
+                        
                         <div className="flex items-center gap-3">
                             {user ? (
-                                <div className="flex flex-col items-end">
-                                    <div className="flex items-center gap-2 group cursor-pointer" onClick={() => {if(confirm("確定要登出？")) logout()}}>
-                                        <img src={user.photoURL} className="w-8 h-8 rounded-full border-2 border-white shadow-sm" />
-                                        <div className="hidden group-hover:block absolute bg-black text-white text-[8px] px-2 py-1 rounded mt-10">登出</div>
-                                    </div>
-                                    <span className="text-[9px] font-bold text-emerald-500 uppercase tracking-tighter">● Synced</span>
+                                <div className="flex items-center gap-2 bg-white pr-3 pl-1 py-1 rounded-full border border-slate-100 shadow-sm cursor-pointer" onClick={() => {if(confirm("確定登出？")) auth.signOut()}}>
+                                    <img src={user.photoURL} className="w-7 h-7 rounded-full shadow-inner" />
+                                    <span className={`w-2 h-2 rounded-full ${syncStatus === 'synced' ? 'bg-emerald-400' : 'bg-amber-400'}`}></span>
                                 </div>
                             ) : (
-                                <button onClick={login} className="flex items-center gap-2 bg-white px-3 py-1.5 rounded-full border border-slate-200 shadow-sm active:scale-95 transition-all">
-                                    <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" className="w-3 h-3"/>
-                                    <span className="text-[10px] font-bold text-slate-600">Login</span>
+                                <button onClick={login} className="flex items-center gap-2 bg-white px-4 py-1.5 rounded-full border border-slate-200 shadow-sm text-xs font-bold text-slate-600 active:scale-95 transition-all">
+                                    <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" className="w-3 h-3"/> Login
                                 </button>
                             )}
                         </div>
                     </div>
 
                     <header className="text-center mb-8">
-                        <h1 className="text-5xl mb-2">🧋</h1>
+                        <h1 className="text-5xl mb-2 opacity-90">🧋</h1>
                         <p className="text-[9px] font-bold text-slate-300 uppercase tracking-[0.5em]">Drink Diary Pro</p>
                     </header>
 
                     {/* 數據看板 */}
                     <div className="grid grid-cols-3 gap-2 mb-2">
                         <div className="glass-card p-3 flex flex-col items-center">
-                            <p className="text-purple-400 text-[8px] font-bold mb-1">最愛店家</p>
-                            <p className="font-bold text-sm text-slate-600 truncate w-full text-center">{stats.store}</p>
+                            <p className="text-purple-400 text-[8px] font-bold uppercase mb-1">最愛店家</p>
+                            <p className="font-bold text-sm text-slate-600 truncate w-full text-center tracking-tight">{stats.store}</p>
                         </div>
                         <div className="glass-card p-3 flex flex-col items-center">
-                            <p className="text-pink-400 text-[8px] font-bold mb-1">最愛品項</p>
-                            <p className="font-bold text-sm text-slate-600 truncate w-full text-center">{stats.item}</p>
+                            <p className="text-pink-400 text-[8px] font-bold uppercase mb-1">最愛品項</p>
+                            <p className="font-bold text-sm text-slate-600 truncate w-full text-center tracking-tight">{stats.item}</p>
                         </div>
                         <div className="glass-card p-3 flex flex-col items-center">
-                            <p className="text-emerald-500 text-[8px] font-bold mb-1">減塑成就</p>
-                            <p className="font-bold text-sm text-slate-600">{stats.eco} 次</p>
+                            <p className="text-emerald-500 text-[8px] font-bold uppercase mb-1">減塑成就 ♻️</p>
+                            <p className="font-bold text-sm text-slate-600 tracking-tight">{stats.eco} 次</p>
                         </div>
                     </div>
 
                     <div className="grid grid-cols-3 gap-2 mb-10 text-center">
-                        <div className="glass-card py-4">
-                            <p className="text-slate-400 text-[9px] mb-0.5">總杯數</p>
-                            <p className="text-xl font-bold text-slate-700">{stats.total}</p>
+                        <div className="glass-card py-4 flex flex-col items-center">
+                            <p className="text-slate-400 text-[9px] font-semibold mb-0.5">總杯數</p>
+                            <p className="text-xl font-bold text-slate-700 leading-none">{stats.total}</p>
                         </div>
-                        <div className="glass-card py-4">
-                            <p className="text-slate-400 text-[9px] mb-0.5">總金額</p>
-                            <p className="text-xl font-bold text-emerald-500">${stats.cost}</p>
+                        <div className="glass-card py-4 flex flex-col items-center">
+                            <p className="text-slate-400 text-[9px] font-semibold mb-0.5">總金額</p>
+                            <p className="text-xl font-bold text-emerald-500 leading-none">${stats.cost}</p>
                         </div>
-                        <div className="glass-card py-4">
-                            <p className="text-slate-400 text-[9px] mb-0.5">平均價</p>
-                            <p className="text-xl font-bold text-blue-500">${stats.avg}</p>
+                        <div className="glass-card py-4 flex flex-col items-center">
+                            <p className="text-slate-400 text-[9px] font-semibold mb-0.5">平均價</p>
+                            <p className="text-xl font-bold text-blue-500 leading-none">${stats.avg}</p>
                         </div>
                     </div>
 
-                    {/* 主要顯示切換 */}
+                    {/* 主要內容區 */}
                     {viewMode === 'calendar' ? (
-                        <div className="glass-card p-5 mb-10 animate-slide-up">
-                            <div className="flex justify-between items-center h-12 mb-4">
-                                <div onClick={() => { let m = currentMonth - 1; if(m<0){m=11; setCurrentYear(y=>y-1)} setCurrentMonth(m)}} className="nav-tri-btn"><TriangleIcon direction="left" /></div>
-                                <p className="text-lg font-bold text-slate-700">{currentYear} / {String(currentMonth + 1).padStart(2, '0')}</p>
-                                <div onClick={() => { let m = currentMonth + 1; if(m>11){m=0; setCurrentYear(y=>y+1)} setCurrentMonth(m)}} className="nav-tri-btn"><TriangleIcon direction="right" /></div>
+                        <div className="glass-card p-5 mb-10 pb-6 text-center animate-slide-up">
+                            <div className="relative flex justify-center items-center h-12 mb-2">
+                                <div onClick={() => {let m=currentMonth-1; if(m<0){m=11;setCurrentYear(y=>y-1)} setCurrentMonth(m)}} className="nav-tri-btn absolute left-[14.28%] -translate-x-1/2"><TriangleIcon direction="left" /></div>
+                                <p className="text-lg font-bold text-slate-700 tracking-widest">{currentYear} / {String(currentMonth + 1).padStart(2, '0')}</p>
+                                <div onClick={() => {let m=currentMonth+1; if(m>11){m=0;setCurrentYear(y=>y+1)} setCurrentMonth(m)}} className="nav-tri-btn absolute right-[14.28%] translate-x-1/2"><TriangleIcon direction="right" /></div>
                             </div>
-                            <div className="grid grid-cols-7 gap-y-2">
-                                {["S", "M", "T", "W", "T", "F", "S"].map(d => <div key={d} className="text-[9px] text-slate-300 font-bold text-center">{d}</div>)}
+                            <div className="grid grid-cols-7 gap-y-1.5 text-center">
+                                {["SUN", "MON", "TUE", "WED", "THU", "FRI", "SAT"].map(d => <div key={d} className="text-[9px] text-slate-300 font-bold uppercase mb-1">{d}</div>)}
                                 {calendarDays.map((d, i) => (
-                                    <div key={i} onClick={() => d && (user ? setActiveDayKey(d.key) || setTempRecords(d.drinks.length ? [...d.drinks] : [{p:"", s:"", i:"", ice:"微冰", sug:"微糖", eco:false}]) || setIsModalOpen(true) : alert("請先登入以記錄資料"))} className="aspect-square flex flex-col items-center justify-center cursor-pointer">
-                                        {d && <div className={`w-8 h-8 flex items-center justify-center rounded-full text-xs ${d.drinks.length > 0 ? 'bg-indigo-600 text-white font-bold' : 'text-slate-400'}`}>{d.day}</div>}
-                                        {d?.drinks.length > 0 && <div className="w-1 h-1 bg-pink-400 rounded-full mt-1"></div>}
+                                    <div key={i} onClick={() => d && (user ? (setActiveDayKey(d.key) || setTempRecords(d.drinks.length > 0 ? [...d.drinks] : [{ p: "", s: "", i: "", ice: "微冰", sug: "微糖", eco: false }]) || setIsModalOpen(true)) : alert("請先登入"))} className="aspect-square flex flex-col items-center justify-center cursor-pointer relative">
+                                        {d && <div className={`w-8 h-8 flex items-center justify-center rounded-full text-xs transition-all ${d.drinks.length > 0 ? 'bg-indigo-600 text-white font-bold shadow-md' : 'text-slate-400'}`}>{d.day}</div>}
+                                        {d?.drinks.length > 0 && <div className="w-1 h-1 bg-pink-400 rounded-full mt-0.5"></div>}
                                     </div>
                                 ))}
                             </div>
@@ -263,52 +241,62 @@
                     ) : (
                         <div className="space-y-3 animate-slide-up">
                             {Object.keys(dbData).sort((a,b)=>b.localeCompare(a)).map(date => dbData[date].map((drink, idx) => (
-                                <div key={date+idx} className="glass-card p-4 flex items-center justify-between">
-                                    <div className="flex items-center gap-3">
-                                        <div className="w-10 h-10 bg-slate-50 rounded-xl flex items-center justify-center text-lg">{drink.eco ? "♻️" : "🥤"}</div>
+                                <div key={date+idx} className="glass-card p-5 flex items-center justify-between">
+                                    <div className="flex items-center gap-4">
+                                        <div className="w-12 h-12 bg-slate-50 rounded-2xl flex items-center justify-center text-xl shadow-inner border border-white">{drink.eco ? "♻️" : "🥤"}</div>
                                         <div>
-                                            <p className="text-[9px] font-bold text-slate-300">{date.substring(4,6)}/{date.substring(6,8)} <span className="text-indigo-500 ml-2">{drink.s}</span></p>
-                                            <p className="text-slate-600 font-bold text-sm">{drink.i}</p>
+                                            <div className="flex items-center gap-2 mb-0.5">
+                                                <span className="text-[9px] font-bold text-slate-300">{date.substring(4,6)}/{date.substring(6,8)}</span>
+                                                <span className="text-[10px] font-bold text-indigo-500 bg-indigo-50 px-2 py-0.5 rounded-full">{drink.s}</span>
+                                            </div>
+                                            <p className="text-slate-600 font-bold text-sm leading-tight">{drink.i}</p>
                                         </div>
                                     </div>
-                                    <p className="text-emerald-500 font-bold">${drink.p}</p>
+                                    <p className="text-emerald-500 text-lg font-bold tracking-tighter">${drink.p}</p>
                                 </div>
                             )))}
                         </div>
                     )}
 
-                    {/* 編輯 Modal */}
+                    {/* 編輯 Modal - 恢復完整格式 */}
                     {isModalOpen && (
                         <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-[999] flex items-end">
-                            <div className="bg-white w-full rounded-t-[2.5rem] p-6 pb-10 animate-slide-up max-h-[90vh] overflow-y-auto">
-                                <div className="flex justify-between items-center mb-6">
+                            <div className="bg-white w-full rounded-t-[2.5rem] p-6 pb-12 shadow-2xl animate-slide-up max-h-[92vh] overflow-y-auto">
+                                <div className="flex justify-between items-center mb-6 px-1">
                                     <span id="date-header">{activeDayKey.replace(/(\d{4})(\d{2})(\d{2})/, '$1 / $2 / $3')}</span>
-                                    <button onClick={() => setIsModalOpen(false)} className="text-gray-300 text-4xl">&times;</button>
+                                    <button onClick={() => setIsModalOpen(false)} className="text-gray-300 text-4xl p-2">&times;</button>
                                 </div>
-                                {tempRecords.map((rec, idx) => (
-                                    <div key={idx} className="mb-8 p-4 bg-slate-50 rounded-2xl relative">
-                                        <div className="flex justify-between items-center mb-4">
-                                            <span className="text-[10px] font-bold text-pink-400"># 記錄 {idx+1}</span>
-                                            <div className="flex items-center gap-3">
-                                                <div className={`opt-btn px-3 ${rec.eco ? 'eco-on' : ''}`} onClick={()=>{const n=[...tempRecords]; n[idx].eco=!n[idx].eco; setTempRecords(n)}}>♻️</div>
-                                                <input className="w-16 text-right bg-transparent font-bold text-emerald-600 text-2xl outline-none" type="number" value={rec.p} onChange={e=>{const n=[...tempRecords]; n[idx].p=e.target.value; setTempRecords(n)}} placeholder="0" />
-                                                <button onClick={()=>setTempRecords(tempRecords.filter((_,i)=>i!==idx))} className="text-red-300">🗑️</button>
+                                <div className="space-y-8 mb-6">
+                                    {tempRecords.map((rec, idx) => (
+                                        <div key={idx} className="pb-6 border-b-2 border-dashed border-gray-100 last:border-none">
+                                            <div className="flex justify-between items-center bg-gray-50 p-4 rounded-2xl mb-5">
+                                                <span className="text-[10px] font-bold text-pink-400 uppercase tracking-widest">紀錄 #{idx+1}</span>
+                                                <div className="flex items-center space-x-3">
+                                                    <div className={`opt-btn px-3.5 border-emerald-100 text-emerald-600 ${rec.eco ? 'eco-on' : ''}`} onClick={() => { const n = [...tempRecords]; n[idx].eco = !n[idx].eco; setTempRecords(n); }}>♻️</div>
+                                                    <div className="flex items-center">
+                                                        <span className="text-emerald-500 font-bold text-base mr-1">$</span>
+                                                        <input className="w-16 text-right bg-transparent font-bold text-emerald-600 outline-none text-2xl" type="number" value={rec.p} onChange={e => { const n = [...tempRecords]; n[idx].p = e.target.value; setTempRecords(n); }} placeholder="0" />
+                                                    </div>
+                                                    <button onClick={() => setTempRecords(tempRecords.filter((_, i) => i !== idx))} className="text-red-300 text-lg pl-2">🗑️</button>
+                                                </div>
+                                            </div>
+                                            <div className="grid grid-cols-2 gap-4 mb-5">
+                                                <input className="w-full p-4 rounded-xl bg-gray-100 text-sm font-bold outline-none" value={rec.s} onChange={e => { const n = [...tempRecords]; n[idx].s = e.target.value; setTempRecords(n); }} placeholder="店家" />
+                                                <input className="w-full p-4 rounded-xl bg-gray-100 text-sm font-bold outline-none" value={rec.i} onChange={e => { const n = [...tempRecords]; n[idx].i = e.target.value; setTempRecords(n); }} placeholder="品項" />
+                                            </div>
+                                            {/* 恢復 8 個冰塊選項 */}
+                                            <div className="grid grid-cols-4 gap-2 mb-4">
+                                                {['正常','少冰','微冰','去冰','完去','常溫','溫','熱'].map(o => <div key={o} className={`opt-btn ${rec.ice === o ? 'ice-on' : ''}`} onClick={() => { const n = [...tempRecords]; n[idx].ice = o; setTempRecords(n); }}>{o}</div>)}
+                                            </div>
+                                            {/* 恢復 8 個糖度選項 */}
+                                            <div className="grid grid-cols-4 gap-2">
+                                                {['全糖','九分','少糖','半糖','微糖','二分','一分','無糖'].map(o => <div key={o} className={`opt-btn ${rec.sug === o ? 'sugar-on' : ''}`} onClick={() => { const n = [...tempRecords]; n[idx].sug = o; setTempRecords(n); }}>{o}</div>)}
                                             </div>
                                         </div>
-                                        <div className="grid grid-cols-2 gap-3 mb-4">
-                                            <input className="p-3 rounded-xl text-sm outline-none" value={rec.s} onChange={e=>{const n=[...tempRecords]; n[idx].s=e.target.value; setTempRecords(n)}} placeholder="店家" />
-                                            <input className="p-3 rounded-xl text-sm outline-none" value={rec.i} onChange={e=>{const n=[...tempRecords]; n[idx].i=e.target.value; setTempRecords(n)}} placeholder="品項" />
-                                        </div>
-                                        <div className="grid grid-cols-4 gap-1 mb-2">
-                                            {['少冰','微冰','去冰','熱'].map(o => <div key={o} className={`opt-btn py-2 ${rec.ice===o?'ice-on':''}`} onClick={()=>{const n=[...tempRecords]; n[idx].ice=o; setTempRecords(n)}}>{o}</div>)}
-                                        </div>
-                                        <div className="grid grid-cols-4 gap-1">
-                                            {['半糖','微糖','一分','無糖'].map(o => <div key={o} className={`opt-btn py-2 ${rec.sug===o?'sugar-on':''}`} onClick={()=>{const n=[...tempRecords]; n[idx].sug=o; setTempRecords(n)}}>{o}</div>)}
-                                        </div>
-                                    </div>
-                                ))}
-                                <button onClick={() => setTempRecords([...tempRecords, { p: "", s: "", i: "", ice: "微冰", sug: "微糖", eco: false }])} className="w-full border-2 border-dashed border-slate-200 text-slate-400 py-4 rounded-2xl mb-4">+ 再喝一杯</button>
-                                <button onClick={() => { saveData({...dbData, [activeDayKey]: tempRecords.filter(r => r.p !== "")}); setIsModalOpen(false); }} className="w-full py-4 rounded-2xl font-bold text-white bg-gradient-to-r from-indigo-600 to-purple-600 shadow-lg">儲存雲端</button>
+                                    ))}
+                                </div>
+                                <button onClick={() => setTempRecords([...tempRecords, { p: "", s: "", i: "", ice: "微冰", sug: "微糖", eco: false }])} className="w-full border-2 border-dashed border-purple-100 text-purple-300 py-5 rounded-2xl font-bold text-sm mb-5">+ 再喝一杯</button>
+                                <button onClick={() => { saveData({...dbData, [activeDayKey]: tempRecords.filter(r => r.p !== "")}); setIsModalOpen(false); }} className="w-full py-5 rounded-2xl font-bold text-xl text-white bg-gradient-to-r from-purple-600 to-pink-500 shadow-xl">儲存今日數據</button>
                             </div>
                         </div>
                     )}
