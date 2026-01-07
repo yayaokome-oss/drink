@@ -11,7 +11,7 @@
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
     <script src="https://unpkg.com/lucide@latest"></script>
     
-    <!-- Firebase SDK -->
+    <!-- Firebase SDK (Compatibility Mode) -->
     <script src="https://www.gstatic.com/firebasejs/11.1.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/11.1.0/firebase-auth-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/11.1.0/firebase-firestore-compat.js"></script>
@@ -85,16 +85,27 @@
     <script type="text/babel">
         const { useState, useEffect, useMemo } = React;
 
-        // Firebase 初始化連線
-        const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : {};
-        const appId = typeof __app_id !== 'undefined' ? __app_id : 'drink-diary-pro-classic';
+        // --- Firebase 配置：已填入你的專案資訊 ---
+        const firebaseConfig = {
+            apiKey: "AIzaSyAhL6he-fYVeYGLw7vGSKb5U6a7Rm6l_mA",
+            authDomain: "drink-6c5c9.firebaseapp.com",
+            projectId: "drink-6c5c9",
+            storageBucket: "drink-6c5c9.firebasestorage.app",
+            messagingSenderId: "675939707088",
+            appId: "1:675939707088:web:cd397abb6c834335b516d5",
+            measurementId: "G-D9ZT4VN901"
+        };
+
+        const appId = 'drink-diary-pro-classic';
         
-        // 僅在有 config 時初始化
+        // 初始化 Firebase
         let db, auth;
         if (firebaseConfig.apiKey) {
-            const app = firebase.initializeApp(firebaseConfig);
+            const app = firebase.apps.length ? firebase.app() : firebase.initializeApp(firebaseConfig);
             db = firebase.firestore(app);
             auth = firebase.auth(app);
+            // 啟用離線支援
+            db.enablePersistence().catch(() => console.warn("Persistence failed"));
         }
 
         const TriangleIcon = ({ direction }) => (
@@ -106,28 +117,21 @@
         function App() {
             const [dbData, setDbData] = useState({});
             const [user, setUser] = useState(null);
-            const [syncStatus, setSyncStatus] = useState('connecting'); // connecting, synced, error
+            const [syncStatus, setSyncStatus] = useState(auth ? 'connecting' : 'offline'); 
             const [viewMode, setViewMode] = useState('calendar'); 
             const [currentYear, setCurrentYear] = useState(new Date().getFullYear());
             const [currentMonth, setCurrentMonth] = useState(new Date().getMonth()); 
             const [isModalOpen, setIsModalOpen] = useState(false);
             const [activeDayKey, setActiveDayKey] = useState("");
             const [tempRecords, setTempRecords] = useState([]);
-            const [aiAnalysis, setAiAnalysis] = useState("");
-            const [smartInput, setSmartInput] = useState("");
-            const [isParsing, setIsParsing] = useState(false);
 
-            // 1. 處理身份驗證
+            // 1. 匿名登入處理
             useEffect(() => {
                 if (!auth) return;
                 
                 const initAuth = async () => {
                     try {
-                        if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
-                            await auth.signInWithCustomToken(__initial_auth_token);
-                        } else {
-                            await auth.signInAnonymously();
-                        }
+                        await auth.signInAnonymously();
                     } catch (e) {
                         console.error("Auth Error", e);
                         setSyncStatus('error');
@@ -135,31 +139,28 @@
                 };
 
                 initAuth();
-                const unsubscribe = auth.onAuthStateChanged(u => {
-                    setUser(u);
-                });
+                const unsubscribe = auth.onAuthStateChanged(u => setUser(u));
                 return () => unsubscribe();
             }, []);
 
-            // 2. 處理 Firestore 即時同步
+            // 2. 資料同步處理
             useEffect(() => {
                 if (!user || !db) {
-                    // 如果沒有 Firebase，改用 LocalStorage 作為備援
                     const local = localStorage.getItem('drink_v_ultimate_pro');
                     if (local) setDbData(JSON.parse(local));
-                    setSyncStatus('offline');
+                    if (!db) setSyncStatus('offline');
                     return;
                 }
 
-                // 定義專屬路徑：/artifacts/{appId}/users/{userId}/records/main
                 const docRef = db.collection('artifacts').doc(appId).collection('users').doc(user.uid).collection('data').doc('records');
 
                 const unsubscribe = docRef.onSnapshot(doc => {
                     if (doc.exists) {
-                        setDbData(doc.data() || {});
+                        const cloudData = doc.data() || {};
+                        setDbData(cloudData);
+                        localStorage.setItem('drink_v_ultimate_pro', JSON.stringify(cloudData));
                         setSyncStatus('synced');
                     } else {
-                        // 第一次使用的話，嘗試從 LocalStorage 遷移資料
                         const local = localStorage.getItem('drink_v_ultimate_pro');
                         if (local) {
                             const data = JSON.parse(local);
@@ -196,8 +197,8 @@
             };
 
             useEffect(() => {
-                lucide.createIcons();
-            }, [viewMode, isModalOpen, aiAnalysis, syncStatus]);
+                if (window.lucide) window.lucide.createIcons();
+            }, [viewMode, isModalOpen, syncStatus]);
 
             const stats = useMemo(() => {
                 const all = Object.values(dbData).flat();
@@ -255,10 +256,9 @@
             const exportData = () => {
                 const dataStr = JSON.stringify(dbData, null, 2);
                 const dataUri = 'data:application/json;charset=utf-8,'+ encodeURIComponent(dataStr);
-                const exportFileDefaultName = `drink_diary_pro_${new Date().toISOString().slice(0,10)}.json`;
                 const linkElement = document.createElement('a');
                 linkElement.setAttribute('href', dataUri);
-                linkElement.setAttribute('download', exportFileDefaultName);
+                linkElement.setAttribute('download', `drink_diary_pro_backup.json`);
                 linkElement.click();
             };
 
@@ -269,9 +269,7 @@
                 reader.onload = (e) => {
                     try {
                         const json = JSON.parse(e.target.result);
-                        if (confirm("確定要將備份還原到雲端嗎？")) {
-                            saveData(json);
-                        }
+                        if (confirm("確定要將備份還原到雲端嗎？")) saveData(json);
                     } catch (err) { alert("格式錯誤"); }
                 };
                 reader.readAsText(file);
@@ -280,7 +278,6 @@
             const openEdit = (dayData) => {
                 setActiveDayKey(dayData.key);
                 setTempRecords(dayData.drinks.length > 0 ? [...dayData.drinks] : [{ p: "", s: "", i: "", ice: "微冰", sug: "微糖", eco: false }]);
-                setSmartInput("");
                 setIsModalOpen(true);
             };
 
@@ -333,7 +330,7 @@
                         </div>
                     </div>
 
-                    <div className="grid grid-cols-3 gap-2 mb-6">
+                    <div className="grid grid-cols-3 gap-2 mb-10 text-center">
                         <div className="glass-card py-4 flex flex-col items-center">
                             <p className="text-slate-400 text-[9px] font-semibold mb-0.5">總杯數</p>
                             <p className="text-xl font-bold text-slate-700 leading-none">{stats.total}</p>
@@ -348,20 +345,7 @@
                         </div>
                     </div>
 
-                    {/* AI 分析與月曆內容 (省略中間重複邏輯以節省篇幅，與原版一致) */}
-                    <button className="w-full bg-white border border-purple-100 mb-8 p-5 rounded-[1.8rem] flex items-center justify-between shadow-sm active:scale-[0.98] transition-all">
-                        <div className="flex items-center gap-4">
-                            <span className="text-2xl">✨</span>
-                            <div className="text-left">
-                                <p className="text-[9px] font-bold text-purple-400 uppercase tracking-widest">Gemini Analysis</p>
-                                <p className="text-base font-bold text-slate-600">看我的飲品生活分析</p>
-                            </div>
-                        </div>
-                        <div className="flex items-center justify-center opacity-60">
-                            <TriangleIcon direction="right" />
-                        </div>
-                    </button>
-
+                    {/* 主要顯示切換 */}
                     {viewMode === 'calendar' ? (
                         <div className="glass-card p-5 mb-10 pb-6 text-center animate-slide-up">
                             <div className="relative flex justify-center items-center h-12">
@@ -372,7 +356,7 @@
                             <p className="text-[10px] text-slate-300 font-medium -mt-2 mb-4 tracking-wide">
                                 本月累計 {monthSummary.count} 杯，共 ${monthSummary.cost} 元
                             </p>
-                            <div className="grid grid-cols-7 gap-y-1.5 text-center">
+                            <div className="grid grid-cols-7 gap-y-1.5 text-center" id="calendar-grid">
                                 {["SUN", "MON", "TUE", "WED", "THU", "FRI", "SAT"].map(d => (
                                     <div key={d} className="text-[9px] text-slate-300 font-bold uppercase tracking-widest mb-1">{d}</div>
                                 ))}
@@ -422,7 +406,7 @@
                     {/* 編輯 Modal */}
                     {isModalOpen && (
                         <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-[999] flex items-end">
-                            <div className="bg-white w-full rounded-t-[2.5rem] p-6 pb-12 shadow-2xl max-h-[92vh] overflow-y-auto animate-slide-up">
+                            <div className="bg-white w-full rounded-t-[2.5rem] p-6 pb-12 shadow-2xl animate-slide-up max-h-[92vh] overflow-y-auto">
                                 <div className="flex justify-between items-center mb-6 px-1">
                                     <span id="date-header">{activeDayKey.substring(0,4)} / {activeDayKey.substring(4,6)} / {activeDayKey.substring(6,8)}</span>
                                     <button onClick={() => setIsModalOpen(false)} className="text-gray-300 text-4xl leading-none p-2">&times;</button>
@@ -455,7 +439,7 @@
                                     ))}
                                 </div>
                                 <button onClick={() => setTempRecords([...tempRecords, { p: "", s: "", i: "", ice: "正常", sug: "全糖", eco: false }])} className="w-full border-2 border-dashed border-purple-100 text-purple-300 py-5 rounded-2xl font-bold text-sm mb-5 active:bg-purple-50 transition-colors">+ 再喝一杯</button>
-                                <button onClick={() => { saveData({...dbData, [activeDayKey]: tempRecords.filter(r => r.p !== "")}); setIsModalOpen(false); }} className="w-full py-5 rounded-2xl font-bold text-xl text-white shadow-xl active:scale-[0.97] transition-all bg-gradient-to-r from-purple-600 to-pink-500">儲存今日數據</button>
+                                <button onClick={() => { saveData({...dbData, [activeDayKey]: tempRecords.filter(r => r.p !== "")}); setIsModalOpen(false); }} className="w-full py-5 rounded-2xl font-bold text-xl text-white bg-gradient-to-r from-purple-600 to-pink-500 shadow-xl">儲存今日數據</button>
                             </div>
                         </div>
                     )}
