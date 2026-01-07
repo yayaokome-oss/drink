@@ -431,7 +431,7 @@
                                     {tempRecords.map((rec, idx) => (
                                         <div key={idx} className="pb-6 border-b-2 border-dashed border-gray-100 last:border-none text-left">
                                             <div className="flex justify-between items-center bg-gray-50 p-4 rounded-2xl mb-5">
-                                                <span className="text-[10px] font-bold text-pink-400 uppercase tracking-widest">紀錄 #{idx+1}</span>
+                                                <span className="text-[10px] font-bold text-pink-400 uppercase tracking-widest">RECORD #{idx+1}</span>
                                                 <div className="flex items-center space-x-3">
                                                     <div className={`opt-btn px-3.5 border-emerald-100 text-emerald-600 ${rec.eco ? 'eco-on' : ''}`} onClick={() => { const n = [...tempRecords]; n[idx].eco = !n[idx].eco; setTempRecords(n); }}>♻️</div>
                                                     <div className="flex items-center">
