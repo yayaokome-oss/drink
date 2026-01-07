@@ -85,7 +85,7 @@
     <script type="text/babel">
         const { useState, useEffect, useMemo } = React;
 
-        // --- Firebase 配置：已填入你的專案資訊 ---
+        // --- Firebase 配置：手動填入您的專案資訊以解決連線錯誤 ---
         const firebaseConfig = {
             apiKey: "AIzaSyAhL6he-fYVeYGLw7vGSKb5U6a7Rm6l_mA",
             authDomain: "drink-6c5c9.firebaseapp.com",
@@ -101,11 +101,12 @@
         // 初始化 Firebase
         let db, auth;
         if (firebaseConfig.apiKey) {
+            // 防止重複初始化
             const app = firebase.apps.length ? firebase.app() : firebase.initializeApp(firebaseConfig);
             db = firebase.firestore(app);
             auth = firebase.auth(app);
             // 啟用離線支援
-            db.enablePersistence().catch(() => console.warn("Persistence failed"));
+            db.enablePersistence().catch((err) => console.warn("Persistence failed:", err.code));
         }
 
         const TriangleIcon = ({ direction }) => (
@@ -125,12 +126,13 @@
             const [activeDayKey, setActiveDayKey] = useState("");
             const [tempRecords, setTempRecords] = useState([]);
 
-            // 1. 匿名登入處理
+            // 1. 處理身份驗證
             useEffect(() => {
                 if (!auth) return;
                 
                 const initAuth = async () => {
                     try {
+                        // 執行匿名登入
                         await auth.signInAnonymously();
                     } catch (e) {
                         console.error("Auth Error", e);
@@ -139,19 +141,23 @@
                 };
 
                 initAuth();
-                const unsubscribe = auth.onAuthStateChanged(u => setUser(u));
+                const unsubscribe = auth.onAuthStateChanged(u => {
+                    setUser(u);
+                });
                 return () => unsubscribe();
             }, []);
 
-            // 2. 資料同步處理
+            // 2. 處理 Firestore 即時同步
             useEffect(() => {
                 if (!user || !db) {
+                    // 備援模式：讀取本地資料
                     const local = localStorage.getItem('drink_v_ultimate_pro');
                     if (local) setDbData(JSON.parse(local));
                     if (!db) setSyncStatus('offline');
                     return;
                 }
 
+                // 定義專屬路徑：符合安全規則 /artifacts/{appId}/users/{userId}/data/records
                 const docRef = db.collection('artifacts').doc(appId).collection('users').doc(user.uid).collection('data').doc('records');
 
                 const unsubscribe = docRef.onSnapshot(doc => {
@@ -161,6 +167,7 @@
                         localStorage.setItem('drink_v_ultimate_pro', JSON.stringify(cloudData));
                         setSyncStatus('synced');
                     } else {
+                        // 如果雲端沒資料，嘗試將本地資料推上去
                         const local = localStorage.getItem('drink_v_ultimate_pro');
                         if (local) {
                             const data = JSON.parse(local);
@@ -170,7 +177,7 @@
                         setSyncStatus('synced');
                     }
                 }, err => {
-                    console.error("Firestore Error", err);
+                    console.error("Firestore Sync Error:", err);
                     setSyncStatus('error');
                 });
 
@@ -197,7 +204,9 @@
             };
 
             useEffect(() => {
-                if (window.lucide) window.lucide.createIcons();
+                if (window.lucide) {
+                    window.lucide.createIcons();
+                }
             }, [viewMode, isModalOpen, syncStatus]);
 
             const stats = useMemo(() => {
@@ -256,9 +265,10 @@
             const exportData = () => {
                 const dataStr = JSON.stringify(dbData, null, 2);
                 const dataUri = 'data:application/json;charset=utf-8,'+ encodeURIComponent(dataStr);
+                const exportFileDefaultName = `drink_diary_pro_${new Date().toISOString().slice(0,10)}.json`;
                 const linkElement = document.createElement('a');
                 linkElement.setAttribute('href', dataUri);
-                linkElement.setAttribute('download', `drink_diary_pro_backup.json`);
+                linkElement.setAttribute('download', exportFileDefaultName);
                 linkElement.click();
             };
 
@@ -269,7 +279,9 @@
                 reader.onload = (e) => {
                     try {
                         const json = JSON.parse(e.target.result);
-                        if (confirm("確定要將備份還原到雲端嗎？")) saveData(json);
+                        if (confirm("確定要將備份還原到雲端嗎？")) {
+                            saveData(json);
+                        }
                     } catch (err) { alert("格式錯誤"); }
                 };
                 reader.readAsText(file);
@@ -283,7 +295,7 @@
 
             return (
                 <div className="min-h-screen p-4 max-w-md mx-auto">
-                    {/* 切換導覽列 */}
+                    {/* 控制導覽列 */}
                     <div className="flex justify-between items-center mb-8">
                         <div className="flex bg-white p-0.5 rounded-2xl shadow-sm border border-slate-100">
                             <button onClick={() => setViewMode('calendar')} className={`p-2.5 rounded-xl transition-all ${viewMode === 'calendar' ? 'bg-indigo-600 text-white shadow-md' : 'text-slate-400'}`}>
@@ -297,7 +309,7 @@
                         <div className="flex flex-col items-end gap-1.5">
                             <div className={`bg-white px-4 py-1.5 rounded-full border border-slate-100 shadow-sm flex items-center gap-2 text-[10px] font-bold uppercase tracking-widest transition-colors ${syncStatus === 'synced' ? 'text-emerald-500' : 'text-slate-400'}`}>
                                 <div className={`w-2 h-2 rounded-full ${syncStatus === 'synced' ? 'bg-emerald-400' : syncStatus === 'error' ? 'bg-red-400' : 'bg-amber-400 animate-pulse'}`}></div>
-                                <span>{syncStatus === 'synced' ? 'Cloud Synced' : syncStatus === 'error' ? 'Sync Error' : 'Connecting'}</span>
+                                <span>{syncStatus === 'synced' ? 'Cloud Synced' : syncStatus === 'error' ? 'Sync Error' : syncStatus === 'offline' ? 'Offline' : 'Connecting'}</span>
                             </div>
                             <div className="flex gap-2 mr-1">
                                 <button onClick={exportData} className="text-[8px] font-bold text-slate-300 uppercase tracking-widest hover:text-indigo-400 transition-colors px-1">Export</button>
@@ -438,7 +450,7 @@
                                         </div>
                                     ))}
                                 </div>
-                                <button onClick={() => setTempRecords([...tempRecords, { p: "", s: "", i: "", ice: "正常", sug: "全糖", eco: false }])} className="w-full border-2 border-dashed border-purple-100 text-purple-300 py-5 rounded-2xl font-bold text-sm mb-5 active:bg-purple-50 transition-colors">+ 再喝一杯</button>
+                                <button onClick={() => setTempRecords([...tempRecords, { p: "", s: "", i: "", ice: "微冰", sug: "微糖", eco: false }])} className="w-full border-2 border-dashed border-purple-100 text-purple-300 py-5 rounded-2xl font-bold text-sm mb-5 active:bg-purple-50 transition-colors">+ 再喝一杯</button>
                                 <button onClick={() => { saveData({...dbData, [activeDayKey]: tempRecords.filter(r => r.p !== "")}); setIsModalOpen(false); }} className="w-full py-5 rounded-2xl font-bold text-xl text-white bg-gradient-to-r from-purple-600 to-pink-500 shadow-xl">儲存今日數據</button>
                             </div>
                         </div>
